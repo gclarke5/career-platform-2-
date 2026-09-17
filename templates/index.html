@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.full_name }} | Career Platform{% endblock %}
+{% block content %}
+<section class="container hero">
+  <p class="eyebrow">Analytics · Product · Fintech</p>
+  <h1>{{ profile.full_name }}</h1>
+  <h2>{{ profile.headline }}</h2>
+  <p class="lede">{{ profile.summary }}</p>
+  <div class="cta-row">
+    <a class="button primary" href="/resume">{{ profile.cta_primary }}</a>
+    <a class="button secondary" href="/projects">View Projects</a>
+  </div>
+  <p class="contact-list">
+    <a href="mailto:{{ profile.email }}">{{ profile.email }}</a>
+    <a href="{{ profile.linkedin_url }}">LinkedIn</a>
+    <a href="{{ profile.github_url }}">GitHub</a>
+  </p>
+</section>
+{% endblock %}

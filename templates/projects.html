@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Projects | Career Platform{% endblock %}
+{% block content %}
+<section class="container section">
+  <h1>Featured Projects</h1>
+  {% for project in projects %}
+  <article class="card">
+    <h2><a href="/projects/{{ project.slug }}">{{ project.title }}</a></h2>
+    <p>{{ project.short_summary }}</p>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Resume | {{ profile.full_name }}{% endblock %}
+{% block content %}
+<section class="container section">
+  <h1>Resume</h1>
+  <p class="lede">{{ profile.summary }}</p>
+  {% for item in experience %}
+  <article class="card">
+    <h2>{{ item.title }}</h2>
+    <p class="meta">{{ item.company }} · {{ item.date_range }}</p>
+    <p>{{ item.summary }}</p>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

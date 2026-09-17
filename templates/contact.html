@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Contact | {{ profile.full_name }}{% endblock %}
+{% block content %}
+<section class="container section">
+  <h1>Contact</h1>
+  <p class="lede">Let’s connect about analytics, data, and technical business roles.</p>
+  <p class="contact-list">
+    <a href="mailto:{{ profile.email }}">{{ profile.email }}</a>
+    <a href="{{ profile.linkedin_url }}">LinkedIn</a>
+    <a href="{{ profile.github_url }}">GitHub</a>
+  </p>
+</section>
+{% endblock %}
