@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.models import Education, Experience, Profile, Project, Skill, VolunteerWork
+from app.models import Education, Experience, Profile, Project, SiteMeta, Skill, VolunteerWork
 
 
 class DatabaseUnavailableError(RuntimeError):
@@ -73,6 +73,7 @@ def read_projects(db: Session) -> list[dict]:
             "description_points": _lines(row.description),
             "metrics": row.metrics,
             "tools": row.tools,
+            "category": row.category,
             "link_url": row.link_url,
             "case_study_url": row.case_study_url,
         }
@@ -101,3 +102,7 @@ def read_volunteer_work(db: Session) -> list[dict]:
         }
         for row in _read_rows(db, VolunteerWork)
     ]
+
+
+def read_site_meta(db: Session) -> dict[str, str]:
+    return {row.key: row.value for row in _read_rows(db, SiteMeta)}

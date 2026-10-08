@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+from app import fallback_data
 from app.fallback_data import fallback_profile
 from app.repositories import DatabaseUnavailableError
 from app.services.profile_service import get_profile_payload
@@ -24,3 +25,9 @@ def test_profile_service_uses_fallback_when_database_is_unavailable(monkeypatch)
     assert profile["headline"] == fallback_profile["headline"]
     assert profile["summary"] == fallback_profile["summary"]
     assert profile["contact"] == fallback_profile["contact"]
+
+
+def test_fallback_content_has_no_retired_positioning():
+    text = repr(vars(fallback_data)).lower()
+    for retired in ("fintech", "alex morgan", "gambling", "betting"):
+        assert retired not in text

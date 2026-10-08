@@ -8,11 +8,20 @@ def test_public_pages_render_profile_and_core_routes():
     for path in ["/", "/resume", "/projects", "/contact"]:
         response = client.get(path)
         assert response.status_code == 200
-    assert "Alex Morgan" in client.get("/").text
+    assert "Gavin Clarke" in client.get("/").text
 
 
 def test_project_detail_returns_not_found_for_unknown_slug():
-    assert TestClient(create_app()).get("/projects/missing").status_code == 404
+    response = TestClient(create_app()).get("/projects/missing")
+    assert response.status_code == 404
+    assert "text/html" in response.headers["content-type"]
+    assert 'href="/projects"' in response.text
+
+
+def test_unknown_admin_routes_keep_json_errors():
+    response = TestClient(create_app()).get("/admin/missing")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Not Found"}
 
 
 def test_public_pages_and_health_answer_head_requests():

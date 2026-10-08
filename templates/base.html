@@ -3,20 +3,44 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Career Platform{% endblock %}</title>
+    {% set site_name = profile.full_name if profile is defined else "Career Platform" %}
+    <title>{% block title %}{{ site_name }}{% endblock %}</title>
+    <meta name="description" content="{% filter trim | truncate(160) %}{% block description %}{{ profile.summary if profile is defined else "" }}{% endblock %}{% endfilter %}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ site_name }}">
+    <meta property="og:title" content="{{ self.title() | trim }}">
+    <meta property="og:description" content="{{ self.description() | trim | truncate(200) }}">
+    <meta name="theme-color" content="#f6f4f1">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="preload" href="/static/fonts/newsreader-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/source-sans-3-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/static/css/styles.css">
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    {% set path = request.url.path %}
     <header class="topbar">
-      <nav class="container nav">
-        <a class="brand" href="/">{{ profile.full_name if profile is defined else "Career Platform" }}</a>
+      <nav class="container nav" aria-label="Main">
+        <a class="brand" href="/"{% if path == "/" %} aria-current="page"{% endif %}>{{ site_name }}</a>
         <div class="nav-links">
-          <a href="/resume">Resume</a>
-          <a href="/projects">Projects</a>
-          <a href="/contact">Contact</a>
+          <a href="/resume"{% if path == "/resume" %} aria-current="page"{% endif %}>Resume</a>
+          <a href="/projects"{% if path.startswith("/projects") %} aria-current="page"{% endif %}>Projects</a>
+          <a href="/contact"{% if path == "/contact" %} aria-current="page"{% endif %}>Contact</a>
         </div>
       </nav>
     </header>
-    <main>{% block content %}{% endblock %}</main>
+    <main id="main" tabindex="-1">{% block content %}{% endblock %}</main>
+    {% if profile is defined %}
+    <footer class="footer">
+      <div class="container footer-inner">
+        <p class="footer-name">{{ profile.full_name }}{% if profile.location %} <span class="muted">· {{ profile.location }}</span>{% endif %}</p>
+        <p class="footer-links">
+          {% if profile.email %}<a href="mailto:{{ profile.email }}">{{ profile.email }}</a>{% endif %}
+          {% if profile.linkedin_url %}<a href="{{ profile.linkedin_url }}" rel="me">LinkedIn</a>{% endif %}
+          {% if profile.github_url %}<a href="{{ profile.github_url }}" rel="me">GitHub</a>{% endif %}
+        </p>
+      </div>
+    </footer>
+    {% endif %}
   </body>
 </html>

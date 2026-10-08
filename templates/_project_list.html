@@ -1,0 +1,14 @@
+{# Shared project list. Set `heading_level` to "h2" or "h3" before including. #}
+<ol class="work-list" role="list">
+  {% for project in projects %}
+  <li class="work-item">
+    <{{ heading_level }} class="work-title"><a href="/projects/{{ project.slug }}">{{ project.title }}</a></{{ heading_level }}>
+    <p class="work-summary">{{ project.short_summary }}</p>
+    {% if show_results and project.metrics %}<p class="work-result"><span class="label">Result</span> {{ project.metrics }}</p>{% endif %}
+    <p class="work-meta">
+      {% if project.category %}<span class="tag">{{ project.category }}</span>{% endif %}
+      {% if project.tools %}<span>{{ project.tools }}</span>{% endif %}
+    </p>
+  </li>
+  {% endfor %}
+</ol>

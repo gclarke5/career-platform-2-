@@ -1,57 +1,92 @@
 {% extends "base.html" %}
-{% block title %}Resume | {{ profile.full_name }}{% endblock %}
+{% block title %}Resume · {{ profile.full_name }}{% endblock %}
 {% block content %}
-<section class="container section">
+<section class="container section page-head">
   <h1>Resume</h1>
-  <p class="lede">{{ profile.summary }}</p>
+  {% if meta.availability %}<p class="lede">{{ meta.availability }}</p>{% endif %}
+  <p class="contact-inline">
+    {% if profile.email %}<a href="mailto:{{ profile.email }}">{{ profile.email }}</a>{% endif %}
+    {% if profile.linkedin_url %}<a href="{{ profile.linkedin_url }}" rel="me">LinkedIn</a>{% endif %}
+    {% if profile.location %}<span class="muted">{{ profile.location }}</span>{% endif %}
+  </p>
+</section>
 
+<div class="container resume">
   {% if experience %}
-  <h2>Professional Experience</h2>
-  {% for item in experience %}
-  <article class="card">
-    <h3>{{ item.title }}</h3>
-    <p class="meta">{{ item.company }}{% if item.date_range %} · {{ item.date_range }}{% endif %}</p>
-    {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
-    {% if item.highlights %}
-    <ul>
-      {% for highlight in item.highlights %}
-      <li>{{ highlight }}</li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-  </article>
-  {% endfor %}
+  <section class="resume-section" id="experience" aria-labelledby="experience-heading">
+    <h2 id="experience-heading">Experience</h2>
+    {% for item in experience %}
+    <article class="entry">
+      <p class="entry-dates">{{ item.date_range }}</p>
+      <div class="entry-body">
+        <h3 class="entry-company">{{ item.company }}</h3>
+        <p class="entry-role">{{ item.title }}</p>
+        {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
+        {% if item.highlights %}
+        <ul class="bullets">
+          {% for highlight in item.highlights %}
+          <li>{{ highlight }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </section>
   {% endif %}
 
   {% if education %}
-  <h2>Education</h2>
-  {% for item in education %}
-  <article class="card">
-    <h3>{{ item.school }}</h3>
-    {% if item.degree %}<p class="meta">{{ item.degree }}</p>{% endif %}
-    {% if item.details %}<p>{{ item.details }}</p>{% endif %}
-  </article>
-  {% endfor %}
+  <section class="resume-section" id="education" aria-labelledby="education-heading">
+    <h2 id="education-heading">Education</h2>
+    {% for item in education %}
+    <article class="entry">
+      <p class="entry-dates"></p>
+      <div class="entry-body">
+        <h3 class="entry-company">{{ item.school }}</h3>
+        {% if item.degree %}<p class="entry-role">{{ item.degree }}</p>{% endif %}
+        {% if item.details %}
+          {% if item.details.startswith("Courses:") %}
+          <p class="label-line">Relevant coursework</p>
+          <ul class="chips" role="list">
+            {% for course in item.details[8:].split(",") %}<li>{{ course | trim }}</li>{% endfor %}
+          </ul>
+          {% else %}
+          <p>{{ item.details }}</p>
+          {% endif %}
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </section>
   {% endif %}
 
   {% if skill_groups %}
-  <h2>Skills</h2>
-  <article class="card">
-    {% for category, names in skill_groups.items() %}
-    <p><strong>{{ category }}:</strong> {{ names | join(", ") }}</p>
-    {% endfor %}
-  </article>
+  <section class="resume-section" id="skills" aria-labelledby="skills-heading">
+    <h2 id="skills-heading">Skills</h2>
+    <dl class="skills">
+      {% for category, names in skill_groups.items() %}
+      <div class="skill-group">
+        <dt>{{ category }}</dt>
+        <dd>{{ names | join(", ") }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </section>
   {% endif %}
 
   {% if volunteer_work %}
-  <h2>Volunteer Work</h2>
-  {% for item in volunteer_work %}
-  <article class="card">
-    <h3>{{ item.role }}</h3>
-    <p class="meta">{{ item.organization }}{% if item.organization and item.date_range %} · {% endif %}{{ item.date_range }}</p>
-    {% if item.summary %}<p>{{ item.summary }}</p>{% endif %}
-  </article>
-  {% endfor %}
+  <section class="resume-section" id="volunteer" aria-labelledby="volunteer-heading">
+    <h2 id="volunteer-heading">Volunteer Work</h2>
+    <ul class="compact-list" role="list">
+      {% for item in volunteer_work %}
+      <li>
+        <strong>{{ item.role }}</strong>{% if item.organization %}, {{ item.organization }}{% endif %}
+        {% if item.date_range %}<span class="muted"> · {{ item.date_range }}</span>{% endif %}
+        {% if item.summary %}<br><span class="muted">{{ item.summary }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
   {% endif %}
-</section>
+</div>
 {% endblock %}

@@ -1,19 +1,43 @@
 {% extends "base.html" %}
-{% block title %}{{ profile.full_name }} | Career Platform{% endblock %}
+{% block title %}{{ profile.full_name }} · {{ profile.headline }}{% endblock %}
 {% block content %}
-<section class="container hero">
-  <p class="eyebrow">Analytics · Product · Fintech</p>
-  <h1>{{ profile.full_name }}</h1>
-  <h2>{{ profile.headline }}</h2>
+<section class="container hero" aria-labelledby="intro-name">
+  <h1 id="intro-name">{{ profile.full_name }}</h1>
+  <p class="role">{{ profile.headline }}</p>
   <p class="lede">{{ profile.summary }}</p>
+  {% if meta.availability %}<p class="availability">{{ meta.availability }}</p>{% endif %}
   <div class="cta-row">
-    <a class="button primary" href="/resume">{{ profile.cta_primary }}</a>
-    <a class="button secondary" href="/projects">View Projects</a>
+    <a class="button primary" href="/resume">{{ profile.cta_primary or "View Resume" }}</a>
+    {% if profile.email %}<a class="button secondary" href="mailto:{{ profile.email }}">Email me</a>{% endif %}
+    {% if profile.linkedin_url %}<a class="text-link" href="{{ profile.linkedin_url }}" rel="me">LinkedIn</a>{% endif %}
+    {% if profile.github_url %}<a class="text-link" href="{{ profile.github_url }}" rel="me">GitHub</a>{% endif %}
   </div>
-  <p class="contact-list">
-    <a href="mailto:{{ profile.email }}">{{ profile.email }}</a>
-    {% if profile.linkedin_url %}<a href="{{ profile.linkedin_url }}">LinkedIn</a>{% endif %}
-    {% if profile.github_url %}<a href="{{ profile.github_url }}">GitHub</a>{% endif %}
-  </p>
 </section>
+
+{% if meta.proof_points %}
+<section class="container section proof" aria-labelledby="proof-heading">
+  <h2 id="proof-heading">What I've done so far</h2>
+  <ul class="proof-list" role="list">
+    {% for point in meta.proof_points %}
+    <li class="proof-item">
+      {% if point.href %}<a class="proof-link" href="{{ point.href }}">{% endif %}
+        <span class="proof-text">{{ point.text }}</span>
+        {% if point.source %}<span class="proof-source">{{ point.source }}</span>{% endif %}
+      {% if point.href %}</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if projects %}
+<section class="container section" aria-labelledby="work-heading">
+  <div class="section-head">
+    <h2 id="work-heading">Selected work</h2>
+    <a class="text-link" href="/projects">All projects</a>
+  </div>
+  {% set heading_level = "h3" %}{% set show_results = false %}
+  {% include "_project_list.html" %}
+</section>
+{% endif %}
 {% endblock %}

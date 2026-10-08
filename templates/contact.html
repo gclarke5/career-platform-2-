@@ -1,13 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Contact | {{ profile.full_name }}{% endblock %}
+{% block title %}Contact · {{ profile.full_name }}{% endblock %}
 {% block content %}
-<section class="container section">
-  <h1>Contact</h1>
-  <p class="lede">Let’s connect about analytics, data, and technical business roles.</p>
-  <p class="contact-list">
-    <a href="mailto:{{ profile.email }}">{{ profile.email }}</a>
-    {% if profile.linkedin_url %}<a href="{{ profile.linkedin_url }}">LinkedIn</a>{% endif %}
-    {% if profile.github_url %}<a href="{{ profile.github_url }}">GitHub</a>{% endif %}
-  </p>
+<section class="container section page-head contact">
+  <h1>Let's talk</h1>
+  <p class="lede">I'm looking for analyst internships and full-time roles in finance, operations and supply chain. If you're hiring, or just want to compare notes, email is the fastest way to reach me.</p>
+  <ul class="contact-methods" role="list">
+    {% if profile.email %}
+    <li><span class="label">Email</span><a class="contact-primary" href="mailto:{{ profile.email }}">{{ profile.email }}</a></li>
+    {% endif %}
+    {% if profile.linkedin_url %}
+    <li><span class="label">LinkedIn</span><a href="{{ profile.linkedin_url }}" rel="me">{{ profile.linkedin_url | replace("https://www.", "") }}</a></li>
+    {% endif %}
+    {% if profile.github_url %}
+    <li><span class="label">GitHub</span><a href="{{ profile.github_url }}" rel="me">{{ profile.github_url | replace("https://", "") }}</a></li>
+    {% endif %}
+    {% if profile.location %}
+    <li><span class="label">Based in</span><span>{{ profile.location }}</span></li>
+    {% endif %}
+  </ul>
 </section>
 {% endblock %}
