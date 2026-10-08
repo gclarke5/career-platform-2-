@@ -85,3 +85,14 @@ class SiteMeta(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     key: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
     value: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class VolunteerWork(Base):
+    __tablename__ = "volunteer_work"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    role: Mapped[str] = mapped_column(String(160), nullable=False)
+    organization: Mapped[str | None] = mapped_column(String(160))
+    start_date: Mapped[str | None] = mapped_column(String(80))
+    end_date: Mapped[str | None] = mapped_column(String(80))
+    summary: Mapped[str | None] = mapped_column(Text)
