@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
@@ -17,8 +19,9 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name)
     app.mount("/static", StaticFiles(directory="static"), name="static")
     app.include_router(public_router)
-    # On the VM, nginx hid /admin. Railway has no such layer, so production doesn't mount it.
-    if settings.environment != "production":
+    # /admin is unauthenticated, so mount it only when explicitly in development and never on
+    # Railway (which sets RAILWAY_ENVIRONMENT). A missing or mistyped ENVIRONMENT stays closed.
+    if settings.environment == "development" and "RAILWAY_ENVIRONMENT" not in os.environ:
         app.include_router(admin_router)
 
     @app.exception_handler(StarletteHTTPException)
