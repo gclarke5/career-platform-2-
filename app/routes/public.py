@@ -11,12 +11,12 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def home(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "index.html", {"profile": get_profile_payload(db)})
 
 
-@router.get("/resume", response_class=HTMLResponse)
+@router.api_route("/resume", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def resume(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request,
@@ -25,7 +25,7 @@ async def resume(request: Request, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/projects", response_class=HTMLResponse)
+@router.api_route("/projects", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def projects(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request,
@@ -34,7 +34,7 @@ async def projects(request: Request, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/projects/{slug}", response_class=HTMLResponse)
+@router.api_route("/projects/{slug}", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def project_detail(request: Request, slug: str, db: Session = Depends(get_db)):
     project = get_project(db, slug)
     if project is None:
@@ -46,6 +46,6 @@ async def project_detail(request: Request, slug: str, db: Session = Depends(get_
     )
 
 
-@router.get("/contact", response_class=HTMLResponse)
+@router.api_route("/contact", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def contact(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "contact.html", {"profile": get_profile_payload(db)})

@@ -13,3 +13,9 @@ def test_public_pages_render_profile_and_core_routes():
 
 def test_project_detail_returns_not_found_for_unknown_slug():
     assert TestClient(create_app()).get("/projects/missing").status_code == 404
+
+
+def test_public_pages_and_health_answer_head_requests():
+    client = TestClient(create_app())
+    for path in ["/", "/resume", "/projects", "/contact", "/health"]:
+        assert client.head(path).status_code == 200
