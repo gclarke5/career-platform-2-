@@ -20,6 +20,7 @@ fallback_experience = [
         "company": "Northstar Fintech",
         "date_range": "2022 - Present",
         "summary": "Led analytics and experimentation for growth, retention, and operating performance.",
+        "highlights": [],
     }
 ]
 
@@ -28,7 +29,7 @@ fallback_projects = [
         "title": "Revenue Forecasting Platform",
         "slug": "revenue-forecasting-platform",
         "short_summary": "Built a forecasting workflow that improved planning accuracy and executive visibility.",
-        "description": "A self-serve forecasting workflow connecting operational data to planning decisions.",
+        "description_points": ["A self-serve forecasting workflow connecting operational data to planning decisions."],
         "metrics": "12% better forecast precision; 2x faster reporting cycle",
         "tools": "Python, SQL, Tableau",
     }
