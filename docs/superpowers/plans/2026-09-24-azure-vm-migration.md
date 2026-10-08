@@ -4,7 +4,7 @@
 
 **Goal:** Run the career platform on the Azure VM `vm-career-platform`, serving the SQLite data from your laptop, and prove it answers on the VM.
 
-**Architecture:** One Ubuntu VM, reached over SSH. Code is cloned from GitHub. `uv` builds the Python environment from the committed `uv.lock`. Config comes from a `.env` copied from `.env.example`. The SQLite file is scp'd from the laptop into a data directory outside the git clone, so a re-clone can't delete it. Uvicorn runs in the background on `0.0.0.0:8000` (every address on the VM). The NSG only allows SSH (port 22) from your laptop, so port 8000 isn't reachable from the internet, and you view the site through an SSH tunnel. No Azure firewall (NSG) rule changes.
+**Architecture:** One Ubuntu VM, reached over SSH. Code is cloned from GitHub. `uv` builds the Python environment from the committed `uv.lock`. Config comes from a `.env` copied from `.env.example`. The SQLite file is scp'd from the laptop into a data directory outside the git clone, so a re-clone can't delete it. Uvicorn runs in the background on `127.0.0.1:8000`, so only the VM itself can reach it, and you view it from the laptop through an SSH tunnel. No Azure firewall (NSG) rule changes.
 
 **Tech Stack:** Azure VM (Ubuntu), apt, git, sqlite3, uv, Python 3.12+, FastAPI, Uvicorn, SQLAlchemy, Alembic.
 
@@ -106,7 +106,7 @@ Failure modes most likely to bite that the happy path won't show:
 - [ ] **S2: Confirm the NSG allows SSH**
   - **Where:** portal (you click)
   - **Run/click:** `vm-career-platform` → Networking → Inbound port rules.
-  - **Why:** Every later step uses SSH or scp. This plan doesn't open 8000 in the NSG. The app listens on `0.0.0.0`, but the NSG blocks 8000 from outside, and V3 tunnels instead.
+  - **Why:** Every later step uses SSH or scp. This plan doesn't open 8000 (V3 tunnels instead).
   - **Check:** There's an **Allow** rule for TCP 22, ideally limited to your IP.
   - **Undo:** Nothing to undo. This step only reads.
 
@@ -299,14 +299,14 @@ Failure modes most likely to bite that the happy path won't show:
     ```bash
     cd ~/career-platform-2-
     if [ -s ~/career-platform-data/career_platform.db ]; then
-      nohup uv run --no-dev uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 > ~/uvicorn.log 2>&1 < /dev/null &
+      nohup uv run --no-dev uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 > ~/uvicorn.log 2>&1 < /dev/null &
       echo $! > ~/uvicorn.pid
     else
       echo "DB missing or empty, not starting (redo D3)"
     fi
     ```
-  - **Why:** Starting from the clone lets the app find `.env`, `static/` and `templates/`. `nohup` keeps it running after you log out. `0.0.0.0` listens on every address. That still includes `127.0.0.1`, so the curl checks and the V3 tunnel work unchanged. What keeps it off the internet is the NSG, which only allows port 22 from your laptop. **If you ever add an NSG rule for 8000, protect or remove `/admin` first:** `PUT /admin/profile` has no auth. The guard stops SQLAlchemy creating an empty DB on the first `/health` call.
-  - **Check:** `tail -n 20 ~/uvicorn.log` shows `Uvicorn running on http://0.0.0.0:8000`, and `ss -ltnp | grep 8000` shows `0.0.0.0:8000` owned by `uvicorn`. From the laptop, `curl -s -m 8 http://$VM_IP:8000/health` should get **no** response (the NSG blocks it).
+  - **Why:** Starting from the clone lets the app find `.env`, `static/` and `templates/`. `nohup` keeps it running after you log out. `127.0.0.1` means only the VM itself can reach it, even if an NSG rule for 8000 is added later. Keep it that way until `/admin` is protected or removed: `PUT /admin/profile` has no auth. The guard stops SQLAlchemy creating an empty DB on the first `/health` call.
+  - **Check:** `tail -n 20 ~/uvicorn.log` shows `Uvicorn running on http://127.0.0.1:8000`, and `ss -ltnp | grep 8000` shows `127.0.0.1:8000` owned by `uvicorn`. From inside the VM, `curl http://$(hostname -I | cut -d' ' -f1):8000/health` is refused, because only loopback is bound.
   - **Undo:** `pkill -f 'uvicorn app.main:create_app'; rm -f ~/uvicorn.pid`
   - **Restart (e.g. to change `--host`):** stop by exact PID rather than `pkill -f`, which also matches a one-shot `ssh host '…'` command line: `kill $(ss -ltnp | grep ':8000' | grep -o 'pid=[0-9]*' | cut -d= -f2) $(cat ~/uvicorn.pid)`. Wait until `ss -ltn | grep ':8000'` prints nothing, then rerun R1.
 
@@ -354,7 +354,7 @@ Failure modes most likely to bite that the happy path won't show:
 - [ ] **V3: View it in your laptop browser through an SSH tunnel**
   - **Where:** laptop
   - **Run:** `ssh -i ~/.ssh/isba4775_azure -N -L 8000:127.0.0.1:8000 azureuser@$VM_IP`, then open `http://localhost:8000`
-  - **Why:** You see the real site without opening port 8000 in the NSG. The tunnel's far end is `127.0.0.1:8000` on the VM, which the `0.0.0.0` listener also serves. A public URL (NSG rule, reverse proxy, systemd) is a separate follow-up.
+  - **Why:** You see the real site without opening port 8000 in the NSG. The tunnel's far end is `127.0.0.1:8000` on the VM, which is exactly where the app listens. A public URL (NSG rule, reverse proxy, systemd) is a separate follow-up.
   - **Check:** The homepage renders with styling, and `http://localhost:8000/health` shows `"fallback": false`.
   - **Undo:** Press Ctrl-C in the tunnel terminal.
 
@@ -428,6 +428,14 @@ The Codespace still has the original code and DB. Your laptop DB and GitHub are 
   - `127.0.0.53:53` and `127.0.0.54:53` systemd-resolved
 - **`/health`:** healthy with `"fallback": false` via `127.0.0.1` and via the VM's private IP.
 - **From the laptop:** `http://$VM_IP:8000` got no response within 8 seconds. The NSG's only inbound rule allows TCP 22 from your laptop's IP alone.
+
+**Restarted back on `127.0.0.1:8000` on 2026-10-07**, at your request: only the VM itself can reach it. This is the binding R1 now uses. I stopped the old process by PID (integrity `ok`) and changed nothing in Azure. After the restart:
+- **VM listeners (`ss -ltnp`):**
+  - `127.0.0.1:8000` uvicorn (pid 3507)
+  - `0.0.0.0:22` and `[::]:22` sshd
+  - `127.0.0.53:53` and `127.0.0.54:53` systemd-resolved
+- **`/health`:** healthy with `"fallback": false` via `127.0.0.1`. Via the VM's private IP the connection was refused, as intended.
+- **From the laptop:** `http://$VM_IP:8000` got no response, as intended.
 
 **Found during this run, and fixed in the steps above:**
 - **P2/C1:** a plain `uv run` re-installed the dev packages (pytest) and undid `--no-dev`. Re-synced, and every VM `uv run` now has `--no-dev`.
