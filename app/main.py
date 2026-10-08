@@ -17,7 +17,9 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name)
     app.mount("/static", StaticFiles(directory="static"), name="static")
     app.include_router(public_router)
-    app.include_router(admin_router)
+    # On the VM, nginx hid /admin. Railway has no such layer, so production doesn't mount it.
+    if settings.environment != "production":
+        app.include_router(admin_router)
 
     @app.exception_handler(StarletteHTTPException)
     async def not_found_page(request: Request, exc: StarletteHTTPException):
