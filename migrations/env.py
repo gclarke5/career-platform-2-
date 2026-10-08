@@ -7,9 +7,13 @@ from sqlalchemy import engine_from_config, pool
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.config import settings
 from app.models import Base
 
 config = context.config
+# The app's settings (env var, then .env) decide which database to migrate, never alembic.ini.
+# "%" is doubled because Alembic's config parser treats it as interpolation.
+config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 

@@ -20,22 +20,22 @@ def _page(request: Request, db: Session, template: str, **context):
 
 
 @router.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def home(request: Request, db: Session = Depends(get_db)):
+def home(request: Request, db: Session = Depends(get_db)):
     return _page(request, db, "index.html", projects=get_projects(db))
 
 
 @router.api_route("/resume", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def resume(request: Request, db: Session = Depends(get_db)):
+def resume(request: Request, db: Session = Depends(get_db)):
     return _page(request, db, "resume.html", **get_resume_payload(db))
 
 
 @router.api_route("/projects", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def projects(request: Request, db: Session = Depends(get_db)):
+def projects(request: Request, db: Session = Depends(get_db)):
     return _page(request, db, "projects.html", projects=get_projects(db))
 
 
 @router.api_route("/projects/{slug}", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def project_detail(request: Request, slug: str, db: Session = Depends(get_db)):
+def project_detail(request: Request, slug: str, db: Session = Depends(get_db)):
     all_projects = get_projects(db)
     index = next((i for i, item in enumerate(all_projects) if item["slug"] == slug), None)
     if index is None:
@@ -45,5 +45,5 @@ async def project_detail(request: Request, slug: str, db: Session = Depends(get_
 
 
 @router.api_route("/contact", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def contact(request: Request, db: Session = Depends(get_db)):
+def contact(request: Request, db: Session = Depends(get_db)):
     return _page(request, db, "contact.html")

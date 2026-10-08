@@ -1,17 +1,29 @@
 import copy
+import os
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app import fallback_data
+from app.config import normalize_database_url
+from app.db import engine_options
 from app.models import Base
 
 
 @pytest.fixture
 def db_engine(tmp_path):
-    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}", connect_args={"check_same_thread": False})
+    test_url = os.environ.get("TEST_DATABASE_URL")
+    if test_url:
+        # Local throwaway Postgres only: every table is dropped before and after each test.
+        url = normalize_database_url(test_url)
+        engine = create_engine(url, **engine_options(url))
+        Base.metadata.drop_all(engine)
+    else:
+        engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}", connect_args={"check_same_thread": False})
     yield engine
+    if test_url:
+        Base.metadata.drop_all(engine)
     engine.dispose()
 
 

@@ -6,3 +6,4 @@ pytest
 httpx
 jinja2
 uvicorn
+psycopg[binary]>=3.2
