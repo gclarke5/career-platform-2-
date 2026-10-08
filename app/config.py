@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Career Platform"
     database_url: str = "sqlite:///./career_platform.db"
+    railway_database_url: str | None = None
     environment: str = "development"
 
 
