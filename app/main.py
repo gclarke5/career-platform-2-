@@ -14,7 +14,7 @@ def create_app() -> FastAPI:
     app.include_router(public_router)
     app.include_router(admin_router)
 
-    @app.get("/health")
+    @app.api_route("/health", methods=["GET", "HEAD"])
     def health() -> dict[str, str | bool]:
         try:
             with engine.connect() as connection:
