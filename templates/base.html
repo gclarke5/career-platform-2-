@@ -9,7 +9,7 @@
   <body>
     <header class="topbar">
       <nav class="container nav">
-        <a class="brand" href="/">Alex Morgan</a>
+        <a class="brand" href="/">{{ profile.full_name if profile is defined else "Career Platform" }}</a>
         <div class="nav-links">
           <a href="/resume">Resume</a>
           <a href="/projects">Projects</a>

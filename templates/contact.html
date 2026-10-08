@@ -6,8 +6,8 @@
   <p class="lede">Let’s connect about analytics, data, and technical business roles.</p>
   <p class="contact-list">
     <a href="mailto:{{ profile.email }}">{{ profile.email }}</a>
-    <a href="{{ profile.linkedin_url }}">LinkedIn</a>
-    <a href="{{ profile.github_url }}">GitHub</a>
+    {% if profile.linkedin_url %}<a href="{{ profile.linkedin_url }}">LinkedIn</a>{% endif %}
+    {% if profile.github_url %}<a href="{{ profile.github_url }}">GitHub</a>{% endif %}
   </p>
 </section>
 {% endblock %}

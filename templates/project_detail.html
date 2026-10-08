@@ -5,9 +5,15 @@
   <h1>{{ project.title }}</h1>
   <p class="lede">{{ project.short_summary }}</p>
   <article class="card">
-    <p>{{ project.description }}</p>
-    <p><strong>Impact:</strong> {{ project.metrics }}</p>
-    <p><strong>Tools:</strong> {{ project.tools }}</p>
+    {% if project.description_points %}
+    <ul>
+      {% for point in project.description_points %}
+      <li>{{ point }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if project.metrics %}<p><strong>Impact:</strong> {{ project.metrics }}</p>{% endif %}
+    {% if project.tools %}<p><strong>Tools:</strong> {{ project.tools }}</p>{% endif %}
   </article>
 </section>
 {% endblock %}
