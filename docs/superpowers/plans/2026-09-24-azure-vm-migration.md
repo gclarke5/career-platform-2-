@@ -4,7 +4,7 @@
 
 **Goal:** Run the career platform on the Azure VM `vm-career-platform`, serving the SQLite data from your laptop, and prove it answers on the VM.
 
-**Architecture:** One Ubuntu VM, reached over SSH. Code is cloned from GitHub. `uv` builds the Python environment from the committed `uv.lock`. Config comes from a `.env` copied from `.env.example`. The SQLite file is scp'd from the laptop into a data directory outside the git clone, so a re-clone can't delete it. Uvicorn runs in the background on `127.0.0.1:8000`, and you view it from the laptop through an SSH tunnel, so no Azure firewall (NSG) rule changes.
+**Architecture:** One Ubuntu VM, reached over SSH. Code is cloned from GitHub. `uv` builds the Python environment from the committed `uv.lock`. Config comes from a `.env` copied from `.env.example`. The SQLite file is scp'd from the laptop into a data directory outside the git clone, so a re-clone can't delete it. Uvicorn runs in the background on `127.0.0.1:8000`, so only the VM itself can reach it, and you view it from the laptop through an SSH tunnel. No Azure firewall (NSG) rule changes.
 
 **Tech Stack:** Azure VM (Ubuntu), apt, git, sqlite3, uv, Python 3.12+, FastAPI, Uvicorn, SQLAlchemy, Alembic.
 
@@ -16,7 +16,7 @@
 |---|---|
 | Resource group | `rg-career-platform` |
 | VM | `vm-career-platform` |
-| Public IP | `20.114.0.108` (commands use `$VM_IP`, set in S1, because a deallocate can change it) |
+| Public IP | Not recorded here. S1 looks it up from Azure into `$VM_IP`, because a deallocate can change it |
 | SSH user | `azureuser` |
 | SSH key | `~/.ssh/isba4775_azure` |
 | SSH command | `ssh -i ~/.ssh/isba4775_azure azureuser@$VM_IP` |
@@ -96,11 +96,11 @@ Failure modes most likely to bite that the happy path won't show:
   - **Where:** portal (you click). The `az` line runs on the laptop.
   - **Run/click:** Portal → Resource groups → `rg-career-platform` → `vm-career-platform` → Overview. If Status isn't **Running**, click **Start**. Then in each laptop terminal you'll use:
     ```bash
-    export VM_IP=20.114.0.108
+    export VM_IP=$(az vm show -d -g rg-career-platform -n vm-career-platform --query publicIps -o tsv)
     az vm show -d -g rg-career-platform -n vm-career-platform --query "[powerState, publicIps]" -o tsv
     ```
   - **Why:** Every later step needs a running VM at a known IP.
-  - **Check:** The output is `VM running` and `20.114.0.108`. If the IP differs, run `export VM_IP=<new IP>`.
+  - **Check:** The output is `VM running` followed by the VM's public IP, and `echo $VM_IP` prints that same IP.
   - **Undo:** If you started it here and want it off, use Appendix X2 (deallocate).
 
 - [ ] **S2: Confirm the NSG allows SSH**
@@ -189,10 +189,11 @@ Failure modes most likely to bite that the happy path won't show:
   - **Why:** `--locked` fails instead of quietly re-resolving if `uv.lock` doesn't match `pyproject.toml`, so the VM gets exactly the committed versions. `--no-dev` leaves out pytest and httpx. Tests don't run on the VM, because they open whatever DB is configured.
   - **Check:**
     ```bash
-    uv run python -c "import fastapi, sqlalchemy, uvicorn, alembic, jinja2; print('ok')"   # prints ok
-    uv run python -c "import pytest"                                                         # ModuleNotFoundError
+    uv run --no-dev python -c "import fastapi, sqlalchemy, uvicorn, alembic, jinja2; print('ok')"   # prints ok
+    uv run --no-dev python -c "import pytest"                                                         # ModuleNotFoundError
     ls ~/career-platform-2-/*.db 2>/dev/null || echo "no db"                                 # prints no db
     ```
+  - **Note:** Every `uv run` on the VM needs `--no-dev`. A plain `uv run` re-syncs the default groups and quietly installs pytest again (seen on 2026-10-07).
   - **Undo:** `rm -rf ~/career-platform-2-/.venv`
 
 ## 5. Config
@@ -211,7 +212,7 @@ Failure modes most likely to bite that the happy path won't show:
     chmod 600 .env
     ```
   - **Why:** `.env.example` documents the three settings in `app/config.py`. Its `DATABASE_URL` is relative, so we replace it with an absolute path outside the clone. That way the app always opens the same file, and that file survives a re-clone.
-  - **Check:** `uv run python -c "from app.config import settings; print(settings.database_url, settings.environment)"` prints the four-slash absolute URL and `production`. This only reads settings. It doesn't open the DB.
+  - **Check:** `uv run --no-dev python -c "from app.config import settings; print(settings.database_url, settings.environment)"` prints the four-slash absolute URL and `production`. This only reads settings. It doesn't open the DB.
   - **Undo:** `rm ~/career-platform-2-/.env; rmdir ~/career-platform-data` (`rmdir` only succeeds while the directory is empty).
 
 ## 6. Data
@@ -298,15 +299,16 @@ Failure modes most likely to bite that the happy path won't show:
     ```bash
     cd ~/career-platform-2-
     if [ -s ~/career-platform-data/career_platform.db ]; then
-      nohup uv run uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 > ~/uvicorn.log 2>&1 &
+      nohup uv run --no-dev uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 > ~/uvicorn.log 2>&1 < /dev/null &
       echo $! > ~/uvicorn.pid
     else
       echo "DB missing or empty, not starting (redo D3)"
     fi
     ```
-  - **Why:** Starting from the clone lets the app find `.env`, `static/` and `templates/`. `nohup` keeps it running after you log out. `127.0.0.1` keeps it off the internet. The guard stops SQLAlchemy creating an empty DB on the first `/health` call.
-  - **Check:** `tail -n 20 ~/uvicorn.log` shows `Uvicorn running on http://127.0.0.1:8000`, and `ss -ltnp | grep 8000` shows a listener.
+  - **Why:** Starting from the clone lets the app find `.env`, `static/` and `templates/`. `nohup` keeps it running after you log out. `127.0.0.1` means only the VM itself can reach it, even if an NSG rule for 8000 is added later. Keep it that way until `/admin` is protected or removed: `PUT /admin/profile` has no auth. The guard stops SQLAlchemy creating an empty DB on the first `/health` call.
+  - **Check:** `tail -n 20 ~/uvicorn.log` shows `Uvicorn running on http://127.0.0.1:8000`, and `ss -ltnp | grep 8000` shows `127.0.0.1:8000` owned by `uvicorn`. From inside the VM, `curl http://$(hostname -I | cut -d' ' -f1):8000/health` is refused, because only loopback is bound.
   - **Undo:** `pkill -f 'uvicorn app.main:create_app'; rm -f ~/uvicorn.pid`
+  - **Restart (e.g. to change `--host`):** stop by exact PID rather than `pkill -f`, which also matches a one-shot `ssh host '…'` command line: `kill $(ss -ltnp | grep ':8000' | grep -o 'pid=[0-9]*' | cut -d= -f2) $(cat ~/uvicorn.pid)`. Wait until `ss -ltn | grep ':8000'` prints nothing, then rerun R1.
 
 ## 8. Verify
 
@@ -325,7 +327,7 @@ Failure modes most likely to bite that the happy path won't show:
   - **Undo:** Nothing to undo. This step only reads.
 
 - [ ] **V2: The running app uses *your* data**
-  - **Where:** VM (compare with the laptop's `/tmp/laptop_counts.txt` and `/tmp/laptop_dump.sha`)
+  - **Where:** VM (compare with the laptop's `/tmp/laptop_counts.txt` and `shasum -a 256 /tmp/career_platform_upload.db`)
   - **Run:**
     ```bash
     DB=~/career-platform-data/career_platform.db
@@ -334,7 +336,7 @@ Failure modes most likely to bite that the happy path won't show:
     for t in profiles experiences projects skills education volunteer_work certifications links site_meta; do
       echo "$t $(sqlite3 -readonly $DB "SELECT COUNT(*) FROM $t;")"
     done
-    sqlite3 -readonly $DB .dump | sha256sum | cut -d' ' -f1
+    sha256sum $DB | cut -d' ' -f1
     sqlite3 -readonly $DB "SELECT full_name, headline FROM profiles;"
     ls ~/career-platform-2-/*.db 2>/dev/null || echo "no stray db"
     ```
@@ -342,7 +344,7 @@ Failure modes most likely to bite that the happy path won't show:
   - **Check:**
     - `/health` returns `{"status":"ok","database":"healthy","fallback":false}`.
     - The `/proc` line points to `/home/azureuser/career-platform-data/career_platform.db` and nothing else. If nothing is listed, run the `/health` curl again (the connection opens lazily), then repeat.
-    - The counts match `/tmp/laptop_counts.txt`, and the hash matches `/tmp/laptop_dump.sha`.
+    - The counts match `/tmp/laptop_counts.txt`, and the file hash matches `shasum -a 256 /tmp/career_platform_upload.db` on the laptop. Don't compare `.dump` hashes: macOS `sqlite3` 3.54 and Ubuntu's 3.45 print newlines differently (`unistr('\u000a')` vs `replace(...,char(10))`), so the dumps never match even when the data does. The app only reads, so the file stays byte-identical while it runs.
     - The profile row is yours, not `Alex Morgan`.
     - The last line prints `no stray db`.
 
@@ -352,7 +354,7 @@ Failure modes most likely to bite that the happy path won't show:
 - [ ] **V3: View it in your laptop browser through an SSH tunnel**
   - **Where:** laptop
   - **Run:** `ssh -i ~/.ssh/isba4775_azure -N -L 8000:127.0.0.1:8000 azureuser@$VM_IP`, then open `http://localhost:8000`
-  - **Why:** You see the real site without exposing port 8000. A public URL (NSG rule, reverse proxy, systemd) is a separate follow-up.
+  - **Why:** You see the real site without opening port 8000 in the NSG. The tunnel's far end is `127.0.0.1:8000` on the VM, which is exactly where the app listens. A public URL (NSG rule, reverse proxy, systemd) is a separate follow-up.
   - **Check:** The homepage renders with styling, and `http://localhost:8000/health` shows `"fallback": false`.
   - **Undo:** Press Ctrl-C in the tunnel terminal.
 
@@ -401,3 +403,42 @@ The Codespace still has the original code and DB. Your laptop DB and GitHub are 
 4. VM: uninstall uv (P1 Undo)
 5. VM: remove the apt packages that weren't preinstalled (K2 Undo), then `rm ~/preinstalled-packages.txt`
 6. Laptop: `rm /tmp/career_platform_upload.db /tmp/laptop_counts.txt /tmp/laptop_dump.sha`
+
+## Verify results
+
+**Run on the VM on 2026-10-07** (around 04:52–05:00 UTC Oct 8), after G (pull to `b69a86a`), P2, D1–D4 and R1. The VM was reached with `ssh azureuser@$VM_IP`. The last column is the earlier laptop-only run, kept for comparison.
+
+| Check | What it tests | Pass condition | VM result | Laptop equivalent (2026-10-07) |
+|---|---|---|---|---|
+| V1 | Every public route and the static CSS are served | `/`, `/resume`, `/projects`, `/contact`, `/health`, `/static/css/styles.css` all return `200` | ✅ All six returned `200` | All six returned `200` |
+| V2: health | The app can reach its database | `{"status":"ok","database":"healthy","fallback":false}` | ✅ `{"status":"ok","database":"healthy","fallback":false}` | Same |
+| V2: open file | The uvicorn process has *your* DB file open, and no other | `/proc/<pid>/fd` lists only `/home/azureuser/career-platform-data/career_platform.db` | ✅ Only `/home/azureuser/career-platform-data/career_platform.db` | Not applicable: `/proc` is Linux-only |
+| V2: row counts | The VM's DB has the same rows as the laptop snapshot | Counts match `/tmp/laptop_counts.txt` | ✅ Match: profiles 1, experiences 3, projects 3, skills 7, education 1, volunteer_work 2, certifications 0, links 0, site_meta 0 | Same counts |
+| V2: file hash | The VM's DB is byte-for-byte the laptop snapshot | `sha256sum` of the DB file equals the laptop snapshot's | ✅ Both `2a19d5ba…72b52`, checked again with the app running | Not run |
+| V2: dump hash (original check) | Same as above, via `.dump` | `.dump` hashes match | ⚠️ Mismatch, but a false alarm: `sqlite3` 3.54 vs 3.45 format newlines differently. The file hash matches, so the data is identical. Check replaced with the file hash above | Not applicable |
+| V2: profile row | The data is yours, not the seed/fallback profile | `Gavin Clarke`, not `Alex Morgan` | ✅ `Gavin Clarke \| Information Systems & Business Analytics Student \| Data Analytics`. The homepage shows `Gavin Clarke`, never `Alex Morgan`, and `/resume` has Volunteer Work | Same |
+| V2: stray DB | Nothing created an empty DB in the clone | Prints `no stray db` | ✅ `no stray db` | Not applicable |
+| V3 | The site renders in your browser through the SSH tunnel | Homepage renders with styling; `/health` shows `"fallback": false` | ⏳ Not run yet: it needs your browser (see V3) | You viewed the local dev server and said it looked good |
+| V4 | The app keeps running after every SSH session closes | Same healthy JSON as V2 | ✅ A fresh SSH session got the healthy JSON. The launcher was handed to PID 1 when the session that started it closed, and uvicorn PID 2884 is still listening | Not applicable |
+
+**Restarted on `0.0.0.0:8000` on 2026-10-07**, at your request, after the results above. I stopped the old process by PID (integrity `ok`), started it with `--host 0.0.0.0`, and changed nothing in Azure. After the restart:
+- **VM listeners (`ss -ltnp`):**
+  - `0.0.0.0:8000` uvicorn (pid 3357)
+  - `0.0.0.0:22` and `[::]:22` sshd
+  - `127.0.0.53:53` and `127.0.0.54:53` systemd-resolved
+- **`/health`:** healthy with `"fallback": false` via `127.0.0.1` and via the VM's private IP.
+- **From the laptop:** `http://$VM_IP:8000` got no response within 8 seconds. The NSG's only inbound rule allows TCP 22 from your laptop's IP alone.
+
+**Restarted back on `127.0.0.1:8000` on 2026-10-07**, at your request: only the VM itself can reach it. This is the binding R1 now uses. I stopped the old process by PID (integrity `ok`) and changed nothing in Azure. After the restart:
+- **VM listeners (`ss -ltnp`):**
+  - `127.0.0.1:8000` uvicorn (pid 3507)
+  - `0.0.0.0:22` and `[::]:22` sshd
+  - `127.0.0.53:53` and `127.0.0.54:53` systemd-resolved
+- **`/health`:** healthy with `"fallback": false` via `127.0.0.1`. Via the VM's private IP the connection was refused, as intended.
+- **From the laptop:** `http://$VM_IP:8000` got no response, as intended.
+
+**Found during this run, and fixed in the steps above:**
+- **P2/C1:** a plain `uv run` re-installed the dev packages (pytest) and undid `--no-dev`. Re-synced, and every VM `uv run` now has `--no-dev`.
+- **R1:** added `--no-dev`, and `< /dev/null` so a one-shot `ssh host '…'` returns instead of hanging.
+- **V2:** the `.dump` hash comparison is replaced with a file hash, which works across `sqlite3` versions.
+- **Note:** run as a one-shot `ssh host '…'`, `pgrep -f 'uvicorn app.main:create_app'` also matches the `bash -c` running that command, so it prints a PID even when the app is down. Use `ss -ltnp | grep 8000` to check whether it's really running.
