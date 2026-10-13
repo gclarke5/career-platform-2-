@@ -34,10 +34,21 @@ TEST_DATABASE_URL=postgresql://localhost/career_test uv run pytest
 | Database | service `Postgres`, reached privately at `postgres.railway.internal` |
 | Domains | `gavinclarke.me` (custom) and `web-production-9277a.up.railway.app` |
 | DNS | Cloudflare: `@` is a CNAME to `dwaascah.up.railway.app`, DNS only (grey cloud) |
+| `www` | Redirected by Cloudflare, not Railway (see below) |
 
 Railway terminates HTTPS and forwards to Uvicorn on the port it sets in
 `PORT` (8080). Uvicorn runs with `--forwarded-allow-ips="*"` so the app trusts
 `X-Forwarded-Proto` and builds `https://` redirects.
+
+### `www.gavinclarke.me`
+
+Railway's plan allows one custom domain per service, and `gavinclarke.me` uses
+it. So `www` never reaches Railway: in Cloudflare, `www` is an A record to the
+placeholder `192.0.2.1`, **proxied** (orange cloud), and a redirect rule
+("Redirect www to the root domain") answers every `www` request with a 301 to
+`https://gavinclarke.me`, keeping the path and query string. The placeholder
+address is never contacted. Don't switch `www` to DNS only, or the redirect
+stops and the name points nowhere.
 
 ### Variables on `web`
 
@@ -106,8 +117,9 @@ have content.
 
 ## The old Azure VM
 
-The site used to run on an Azure VM (nginx, systemd, SQLite). The root domain
-now points to Railway; the VM stays up, unchanged, as the rollback until it is
-retired. `www.gavinclarke.me` still points to the VM. See
-`docs/superpowers/plans/2026-10-08-railway-postgres-migration.md` for the move
-and `docs/superpowers/plans/2026-10-01-operate-the-vm.md` for the VM setup.
+The site used to run on an Azure VM (nginx, systemd, SQLite). No DNS record
+points to it any more, but it stays up, unchanged, as the rollback: pointing
+`@` back to its A record (`20.114.0.108`) restores the old host. It hasn't been
+retired. See `docs/superpowers/plans/2026-10-08-railway-postgres-migration.md`
+for the move and `docs/superpowers/plans/2026-10-01-operate-the-vm.md` for the
+VM setup.
