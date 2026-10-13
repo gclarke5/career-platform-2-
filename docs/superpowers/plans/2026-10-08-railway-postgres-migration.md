@@ -33,7 +33,7 @@
 
 ## Status (end of 2026-10-13)
 
-Tasks 1–6 are merged (PR #5, `32b3336`). Task 7 is done except Step 8 (proxy off). Task 8: the apex `gavinclarke.me` serves from Railway; `www`, the cutover checks, VM retirement and the doc updates are left.
+Tasks 1–7 are done (code merged in PR #5, `32b3336`; README and plan in PR #6). Task 8 is done except Step 5: `gavinclarke.me` serves from Railway, `www` redirects to it through Cloudflare, and the cutover checks pass. **The VM is not retired**, by decision on 2026-10-13: it stays up, unchanged, as the rollback.
 
 | Item | Now |
 |---|---|
@@ -42,8 +42,9 @@ Tasks 1–6 are merged (PR #5, `32b3336`). Task 7 is done except Step 8 (proxy o
 | Railway `web` | Deployment `a05829ae` (`32b3336`), SUCCESS. Pre-deploy log shows all three upgrades to `d4a8f1c2e7b9`. Variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `ENVIRONMENT=production`, `RAILPACK_START_CMD` |
 | Railway Postgres | Schema `d4a8f1c2e7b9`; all 9 content tables match the VM's live database row for row (19 rows); every id sequence is past its max id |
 | Domains | `gavinclarke.me` (custom, port 8080, verified, certificate valid) and `web-production-9277a.up.railway.app` |
-| DNS (Cloudflare) | `@` CNAME → `dwaascah.up.railway.app`, DNS only, saved 2026-10-13 12:30:38 PDT; TXT `_railway-verify` saved 12:32:11 PDT. `www` A → `20.114.0.108` (still the VM). MX and SPF untouched |
-| Still open | Postgres TCP proxy is on (Task 7 Step 8). The extra service `career-platform-2-` (created when the repo was first connected through "New → GitHub Repo") still runs and should be deleted. `www` isn't moved |
+| DNS (Cloudflare) | `@` CNAME → `dwaascah.up.railway.app`, DNS only, saved 2026-10-13 12:30:38 PDT; TXT `_railway-verify` saved 12:32:11 PDT. `www` A → `192.0.2.1` (placeholder), **proxied**, saved 12:58:34 PDT, with a redirect rule (301 to `https://gavinclarke.me`, path and query kept). MX and SPF untouched. No record points to the VM |
+| Cleanup | Postgres TCP proxy deleted (`railway tcp-proxy delete`); the old address no longer reaches Postgres. The extra service `career-platform-2-` (created when the repo was first connected through "New → GitHub Repo") is deleted; the project has only `web` and `Postgres` |
+| Still open | Retire the VM (Task 8 Step 5): not yet, by decision. `docs/how-this-site-is-secured.md` (Task 8 Step 6) still describes nginx and Certbot |
 
 ### What Railway actually does (learned 2026-10-13)
 
@@ -52,6 +53,8 @@ Tasks 1–6 are merged (PR #5, `32b3336`). Task 7 is done except Step 8 (proxy o
 - **`railway redeploy` reuses the previous deployment's settings.** Two redeploys after a settings change ran without the pre-deploy command. A fresh deploy of the latest commit (`serviceInstanceDeploy` with `latestCommit: true`, or a push to `main`) picks up current settings.
 - **`/health` only checks connectivity.** It reported `healthy` while Postgres had no tables and the pages showed the fallback.
 - **`railway domain` with no arguments creates a domain.** Use `railway domain list` to look.
+- **One custom domain per service on this plan.** Adding `www.gavinclarke.me` failed with "You have reached the limit for custom domains per service on your plan", so `www` is a Cloudflare redirect instead (README → `www.gavinclarke.me`).
+- **Ordinary pushes run the migration.** The push to `main` from PR #6 (deployment `63d71a0a`) ran `alembic upgrade head` before starting, so only `railway redeploy` needs avoiding.
 
 ## Global Constraints
 
@@ -1007,7 +1010,7 @@ diff <(curl -s https://gavinclarke.me/resume | sed -n '/<main/,/<\/main>/p') <(c
 
 Expected: `/health` → `"fallback":false`. The `/projects/` redirect starts with `https://`; an `http://` here means the proxy header isn't trusted. Pages 200, `/projects/nope` and `/admin` 404. The headline and "What I've done so far" are present, and the resume's `<main>` is identical to the live VM's.
 
-- [ ] **Step 8: Turn the TCP proxy back off**
+- [x] **Step 8: Turn the TCP proxy back off**
 
 Railway dashboard → `Postgres` → Settings → Networking → TCP Proxy → remove it.
 
@@ -1019,11 +1022,11 @@ Then rerun the Step 4 check. Expected: all three `False`. The app is unaffected 
 
 DNS is at your registrar, so you'll make those changes yourself. The VM stays up throughout, so rollback is one DNS change.
 
-- [ ] **Step 1: Lower the TTL a day ahead**
+- [ ] **Step 1: Lower the TTL a day ahead** (skipped: the records were already on Cloudflare's automatic TTL, 5 minutes)
 
 At your registrar, set the TTL on the `gavinclarke.me` and `www` records to 300 seconds. Then wait out the old TTL (`dig gavinclarke.me +noall +answer` shows it) before Step 3, so the switch and any rollback take effect within minutes.
 
-- [x] **Step 2: Add the custom domains in Railway** (apex only; `www` still on the VM)
+- [x] **Step 2: Add the custom domains in Railway** (apex only: the plan allows one custom domain per service)
 
 ```bash
 railway domain gavinclarke.me --service web
@@ -1034,7 +1037,7 @@ Expected: Railway prints the DNS records to create: a CNAME target, plus a TXT v
 
 **Decision for you:** the apex `gavinclarke.me` can only point at a CNAME target if your registrar supports CNAME flattening or ALIAS/ANAME records (Cloudflare, Namecheap's ALIAS, Porkbun, etc.). If yours doesn't, either move DNS to one that does, or make `www.gavinclarke.me` the main address and redirect the apex at the registrar.
 
-- [x] **Step 3: Switch DNS** (apex only; `www` still on the VM)
+- [x] **Step 3: Switch DNS** (apex CNAME to Railway; `www` proxied to a placeholder with a Cloudflare redirect to the apex)
 
 At the registrar:
 - Replace the apex A record (`20.114.0.108`) with the record Railway gave.
@@ -1043,7 +1046,7 @@ At the registrar:
 
 Leave the VM running.
 
-- [ ] **Step 4: Verify the cutover**
+- [x] **Step 4: Verify the cutover**
 
 ```bash
 dig +short gavinclarke.me www.gavinclarke.me
@@ -1067,9 +1070,25 @@ Expected:
 
 Railway issues the certificate after DNS verifies, which can take a few minutes up to about an hour.
 
+**Results** (2026-10-13)
+
+| Check | Result |
+|---|---|
+| DNS | Apex `69.46.46.23` (Railway) on Cloudflare, Google and Quad9; `www` → Cloudflare's edge |
+| Server | `railway-hikari` |
+| Certificate | `CN=gavinclarke.me`, Let's Encrypt, valid to 2027-01-11 |
+| `/health` | `"fallback":false` |
+| `http://` | 301 to `https://gavinclarke.me/` |
+| `/admin` | 404 |
+| `/projects/` | 307 to `https://gavinclarke.me/projects` |
+| Mixed content | No `http://` asset links on `/`, `/resume`, `/projects`, `/contact` (HTML scan, not a browser console) |
+| Pages | All 200; unknown project 404 |
+| Content | `<main>` of `/`, `/resume`, `/projects`, `/contact` and a project page, plus the stylesheet, identical to the VM's |
+| `www` | 301 to the same path on `https://gavinclarke.me`, query kept, one hop from `http://`; final page 200 |
+
 **Rollback:** put the A record back to `20.114.0.108` and remove the CNAME. The VM is still serving the same content.
 
-- [ ] **Step 5: After 7 stable days, retire the VM as the host**
+- [ ] **Step 5: After 7 stable days, retire the VM as the host** (on hold: 2026-10-13 decision to keep the VM for now)
 
 This is a separate decision, and it's yours. Stopping `career-platform` and `nginx` on the VM, or deallocating it to stop Azure charges, is irreversible in practice: Certbot's certificate and the nginx config would need redoing to go back.
 
