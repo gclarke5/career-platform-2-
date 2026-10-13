@@ -31,6 +31,20 @@
 4. **`/admin` becomes public.** Only nginx on the VM blocks it (`location /admin { return 404; }`). On Railway, `GET /admin` would expose the admin payload, and `PUT /admin/profile` would let anyone rewrite the in-memory fallback profile.
 5. **Outages hang instead of falling back.** There's no connect timeout. With an unreachable Postgres, each read waits for the OS TCP timeout, so pages hang for minutes before the fallback renders.
 
+## Status (re-inspected 2026-10-13)
+
+Tasks 1–6 are done on `feat/railway-postgres` (8 commits, pushed). PR #5 is open and mergeable, has no CI checks and no review yet. What's left: Task 6 Step 8 (merge), then Tasks 7–8.
+
+| Item | Now |
+|---|---|
+| Tests | 51 passed on SQLite and 51 on local Postgres (`TEST_DATABASE_URL=postgresql://localhost/career_test`). The 51st, `test_migrations_build_the_schema_but_insert_no_content`, was added 2026-10-13: every deploy runs the migrations, so a data-inserting migration would seed Railway |
+| Copy dry-run | Re-run 2026-10-13 into local Postgres: the nine expected counts, a second run exits 1, and a new `skills` row gets id 8 |
+| VM backup | `~/career-platform-data/backups/career_platform-20261013T182841Z.db` on the VM: integrity `ok`, schema `d4a8f1c2e7b9`, dump identical to the live database |
+| Live site | Still the VM at `a417756`, which is also `origin/main`. Service restarted 2026-10-13 16:58 UTC, same commit |
+| `web` service | Still never deployed, no source. Only Railway's built-in variables, so Task 7 Step 1 is still needed. **It now has a domain:** `https://web-production-9277a.up.railway.app` (created by a `railway domain` check on 2026-10-13), so Task 7 Step 3 no longer creates one |
+| Postgres TCP proxy | **Looks enabled already:** `RAILWAY_TCP_PROXY_DOMAIN` and `RAILWAY_TCP_PROXY_PORT` exist on `Postgres`, but `DATABASE_PUBLIC_URL` does **not**. Task 7 Steps 4, 6 and 8 are adjusted for this |
+| Railway CLI | Warns that Config as Code (`railway.json`) is deprecated in favor of `.railway/railway.ts`. Existing files keep working until **2026-12-01**. Not a blocker; see Follow-ups |
+
 ## Global Constraints
 
 - Railway project `renewed-strength`, environment `production`, services named exactly `Postgres` and `web`.
@@ -87,7 +101,7 @@
 **Interfaces:**
 - Produces: `app.config.normalize_database_url(url: str) -> str`; `app.db.engine_options(url: str) -> dict[str, object]`. `settings.database_url` is always normalized. Tasks 4 and 5 use both.
 
-- [ ] **Step 0: Branch and commit the pending settings field**
+- [x] **Step 0: Branch and commit the pending settings field**
 
 ```bash
 git switch main && git pull --ff-only
@@ -96,7 +110,7 @@ git add app/config.py
 git commit -m "fix: accept RAILWAY_DATABASE_URL in .env without failing settings validation"
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_database_config.py`:
 
@@ -153,12 +167,12 @@ def test_pages_fall_back_quickly_when_postgres_is_unreachable(monkeypatch):
     assert elapsed < 10
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_database_config.py -v`
 Expected: collection error, `ImportError: cannot import name 'normalize_database_url' from 'app.config'`.
 
-- [ ] **Step 3: Add the driver**
+- [x] **Step 3: Add the driver**
 
 ```bash
 uv add 'psycopg[binary]>=3.2'
@@ -168,7 +182,7 @@ uv sync
 
 Expected: `pyproject.toml` lists `"psycopg[binary]>=3.2"`, `uv.lock` gains `psycopg` and `psycopg-binary`, and `.venv/bin/python -c "import psycopg; print(psycopg.__version__)"` prints a 3.x version.
 
-- [ ] **Step 4: Normalize the URL in settings**
+- [x] **Step 4: Normalize the URL in settings**
 
 Replace `app/config.py` with:
 
@@ -202,7 +216,7 @@ class Settings(BaseSettings):
 settings = Settings()
 ```
 
-- [ ] **Step 5: Fail fast on Postgres connections**
+- [x] **Step 5: Fail fast on Postgres connections**
 
 Replace the engine lines in `app/db.py` (currently lines 8–9: `connect_args = …` and `engine = create_engine(…)`) with:
 
@@ -218,19 +232,19 @@ def engine_options(url: str) -> dict[str, object]:
 engine = create_engine(settings.database_url, **engine_options(settings.database_url))
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_database_config.py -v`
 Expected: 7 passed. The fallback test takes roughly 2–8 s, depending on whether later reads in the request retry the connection (2 s each) or fail at once on the session's failed state. Either way the page must render the fallback.
 
 If the fallback test takes more than 10 s, count the reads made per request on `/` (profile, site meta, projects) and make sure each is wrapped by `DatabaseUnavailableError` handling. Don't raise the timeout.
 
-- [ ] **Step 7: Run the whole suite**
+- [x] **Step 7: Run the whole suite**
 
 Run: `.venv/bin/python -m pytest -q`
 Expected: 28 passed (the 21 existing plus 7 new).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add pyproject.toml uv.lock requirements.txt app/config.py app/db.py tests/test_database_config.py
@@ -250,7 +264,7 @@ git commit -m "feat: support Postgres via psycopg with fast-failing connections"
 - Consumes: `app.config.settings.database_url` (normalized, Task 1).
 - Produces: `alembic upgrade head` targets whatever `DATABASE_URL` (env var or `.env`) names. Task 6's pre-deploy command relies on this.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/test_migrations.py`:
 
@@ -281,12 +295,12 @@ def test_alembic_upgrades_the_database_named_by_database_url(tmp_path):
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "d4a8f1c2e7b9"
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_migrations.py -v`
 Expected: FAIL. `migrated.db` has no tables, because Alembic upgraded `./career_platform.db` (already at head, so nothing changed there).
 
-- [ ] **Step 3: Make Alembic read the app's settings**
+- [x] **Step 3: Make Alembic read the app's settings**
 
 In `migrations/env.py`, replace:
 
@@ -315,17 +329,17 @@ In `alembic.ini`, replace line 3 (`sqlalchemy.url = sqlite:///./career_platform.
 sqlalchemy.url =
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `.venv/bin/python -m pytest tests/test_migrations.py -v`
 Expected: PASS.
 
-- [ ] **Step 5: Check the local database is still current**
+- [x] **Step 5: Check the local database is still current**
 
 Run: `.venv/bin/python -m alembic current`
 Expected: `d4a8f1c2e7b9 (head)` (read from `./career_platform.db` via `.env`).
 
-- [ ] **Step 6: Run the whole suite and commit**
+- [x] **Step 6: Run the whole suite and commit**
 
 Run: `.venv/bin/python -m pytest -q` (expected: 29 passed)
 
@@ -346,7 +360,7 @@ git commit -m "fix: run Alembic against the app's DATABASE_URL instead of a hard
 - Consumes: `app.config.settings.environment`.
 - Produces: with `ENVIRONMENT=production`, no `/admin` routes exist (JSON 404, from the handler added in commit `a417756`).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `tests/test_admin_routes.py`:
 
@@ -364,12 +378,12 @@ def test_admin_routes_do_not_exist_in_production(monkeypatch):
     assert "Intruder" not in client.get("/").text
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `.venv/bin/python -m pytest tests/test_admin_routes.py -v`
 Expected: `test_admin_routes_do_not_exist_in_production` FAILS (`/admin` returns 200).
 
-- [ ] **Step 3: Mount the admin router only outside production**
+- [x] **Step 3: Mount the admin router only outside production**
 
 In `app/main.py`, replace `    app.include_router(admin_router)` with:
 
@@ -379,12 +393,12 @@ In `app/main.py`, replace `    app.include_router(admin_router)` with:
         app.include_router(admin_router)
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/test_admin_routes.py -v`
 Expected: 3 passed. The existing admin tests still pass because the default environment is `development`.
 
-- [ ] **Step 5: Run the whole suite and commit**
+- [x] **Step 5: Run the whole suite and commit**
 
 Run: `.venv/bin/python -m pytest -q` (expected: 30 passed)
 
@@ -406,7 +420,7 @@ SQLite accepts things Postgres rejects: over-length strings, integer sequences y
 - Consumes: `normalize_database_url`, `engine_options` (Task 1).
 - Produces: when `TEST_DATABASE_URL` is set, every test's `db_engine` is a freshly emptied Postgres database. Otherwise it's a temp SQLite file, as now.
 
-- [ ] **Step 1: Install a local Postgres for tests**
+- [x] **Step 1: Install a local Postgres for tests**
 
 ```bash
 brew install postgresql@17
@@ -418,7 +432,7 @@ Expected: `brew services list` shows `postgresql@17 started`, and `createdb` pri
 
 This is a local, throwaway test database. Never point `TEST_DATABASE_URL` at Railway: the fixture drops every table.
 
-- [ ] **Step 2: Make `db_engine` switchable**
+- [x] **Step 2: Make `db_engine` switchable**
 
 In `tests/conftest.py`, add `import os` at the top, extend the imports to:
 
@@ -446,19 +460,19 @@ def db_engine(tmp_path):
     engine.dispose()
 ```
 
-- [ ] **Step 3: Run the suite on SQLite (unchanged behavior)**
+- [x] **Step 3: Run the suite on SQLite (unchanged behavior)**
 
 Run: `.venv/bin/python -m pytest -q`
 Expected: 30 passed.
 
-- [ ] **Step 4: Run the suite on Postgres**
+- [x] **Step 4: Run the suite on Postgres**
 
 Run: `TEST_DATABASE_URL=postgresql://localhost/career_test .venv/bin/python -m pytest -q`
 Expected: 30 passed.
 
 `test_alembic_upgrades_the_database_named_by_database_url` still uses its own SQLite file, which is fine. Any other failure is a real SQLite/Postgres difference: fix the code, not the test.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/conftest.py
@@ -479,7 +493,7 @@ git commit -m "test: run the suite against Postgres when TEST_DATABASE_URL is se
   - `copy_content(source: Engine, target: Engine) -> dict[str, int]` (rows copied per table) and `TargetNotEmptyError`.
   - CLI: `python -m app.content_copy SOURCE_URL`, which reads the target URL from the env var `TARGET_DATABASE_URL`, or the one named by `--target-env`. Exit codes: 0 copied, 1 target not empty, 2 target URL missing. Task 7 runs it.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_content_copy.py`:
 
@@ -560,12 +574,12 @@ def test_cli_copies_and_prints_counts_without_the_url(source, db_engine, monkeyp
     assert str(db_engine.url.password or "no-password") not in output
 ```
 
-- [ ] **Step 2: Run them to verify they fail**
+- [x] **Step 2: Run them to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_content_copy.py -v`
 Expected: collection error, `ModuleNotFoundError: No module named 'app.content_copy'`.
 
-- [ ] **Step 3: Write the copy module**
+- [x] **Step 3: Write the copy module**
 
 Create `app/content_copy.py`:
 
@@ -660,7 +674,7 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 4: Run the tests on SQLite, then on Postgres**
+- [x] **Step 4: Run the tests on SQLite, then on Postgres**
 
 Run: `.venv/bin/python -m pytest tests/test_content_copy.py -v`
 Expected: 5 passed.
@@ -668,7 +682,7 @@ Expected: 5 passed.
 Run: `TEST_DATABASE_URL=postgresql://localhost/career_test .venv/bin/python -m pytest tests/test_content_copy.py -v`
 Expected: 5 passed. `test_new_rows_after_copy_get_fresh_ids` is the one that proves the sequence reset. Temporarily comment out the `setval` block to confirm it then fails with a duplicate-key `IntegrityError`, then restore the block.
 
-- [ ] **Step 5: Dry-run against the real content (laptop copy; Task 7 copies from the VM)**
+- [x] **Step 5: Dry-run against the real content (laptop copy; Task 7 copies from the VM)**
 
 ```bash
 TARGET_DATABASE_URL=postgresql://localhost/career_test .venv/bin/python -c "
@@ -679,7 +693,7 @@ TARGET_DATABASE_URL=postgresql://localhost/career_test .venv/bin/python -m app.c
 
 Expected output: `certifications: 0`, `education: 1`, `experiences: 3`, `links: 0`, `profiles: 1`, `projects: 3`, `site_meta: 2`, `skills: 7`, `volunteer_work: 2`. The order may differ. A second run exits 1 with `Target already has rows in: …`.
 
-- [ ] **Step 6: Run the whole suite on both databases and commit**
+- [x] **Step 6: Run the whole suite on both databases and commit**
 
 Run: `.venv/bin/python -m pytest -q && TEST_DATABASE_URL=postgresql://localhost/career_test .venv/bin/python -m pytest -q`
 Expected: 35 passed, twice.
@@ -702,7 +716,7 @@ git commit -m "feat: add content copy script for moving SQLite content into Post
 - Consumes: Task 2 (`alembic upgrade head` follows `DATABASE_URL`), `/health` (existing), the `db_engine` fixture (Task 4).
 - Produces: Railway builds with Railpack from `uv.lock`, runs migrations only (never a seed) before each deploy, starts uvicorn on `$PORT` trusting the proxy's forwarded headers, and health-checks `/health`.
 
-- [ ] **Step 1: Write the failing guard tests**
+- [x] **Step 1: Write the failing guard tests**
 
 These pin "seed stays out of deploy": the deploy commands migrate but never seed, and starting the app and serving every page against an empty database leaves it empty. That second test is what makes Task 7's copy the only way content arrives.
 
@@ -801,7 +815,7 @@ def test_app_behind_proxy_builds_https_urls(tmp_path):
         server.wait(timeout=10)
 ```
 
-- [ ] **Step 2: Run them to verify the first fails**
+- [x] **Step 2: Run them to verify the first fails**
 
 Run: `.venv/bin/python -m pytest tests/test_deploy_config.py -v`
 Expected:
@@ -810,7 +824,7 @@ Expected:
 
 To see the proxy test fail for the right reason, temporarily create `railway.json` without `--forwarded-allow-ips` and rerun. The redirect assertion fails with an `http://` location. Verified on 2026-10-08: from a non-loopback address, default Uvicorn redirected `/projects/` to `http://…/projects`, and with `--forwarded-allow-ips="*"` to `https://…/projects`.
 
-- [ ] **Step 3: Pin Python**
+- [x] **Step 3: Pin Python**
 
 Create `.python-version` containing exactly:
 
@@ -818,7 +832,7 @@ Create `.python-version` containing exactly:
 3.12
 ```
 
-- [ ] **Step 4: Write the Railway config**
+- [x] **Step 4: Write the Railway config**
 
 Create `railway.json`:
 
@@ -846,7 +860,7 @@ Why each piece:
 - `--forwarded-allow-ips="*"`: Railway's edge terminates HTTPS and forwards plain HTTP with `X-Forwarded-Proto: https`. By default Uvicorn trusts those headers only from `127.0.0.1`, and Railway's proxy isn't loopback, so without this the app thinks every request is `http` and builds `http://` redirects and absolute links. Trusting `*` is safe here because the container has no public port: only Railway's proxy and the project's private network can reach it. The quotes stop `sh` treating `*` as a filename pattern.
 - `/health` answers 200 even when the database is degraded. That's intentional, because fallback is the product requirement, so a Postgres outage won't make Railway restart-loop the app.
 
-- [ ] **Step 5: Run the guard tests to verify they pass, then the whole suite**
+- [x] **Step 5: Run the guard tests to verify they pass, then the whole suite**
 
 Run: `.venv/bin/python -m pytest tests/test_deploy_config.py -v`
 Expected: 4 passed. The proxy test is skipped only on a machine with no network interface.
@@ -854,7 +868,7 @@ Expected: 4 passed. The proxy test is skipped only on a machine with no network 
 Run: `.venv/bin/python -m pytest -q && TEST_DATABASE_URL=postgresql://localhost/career_test .venv/bin/python -m pytest -q`
 Expected: 39 passed, twice.
 
-- [ ] **Step 6: Run the start command locally**
+- [x] **Step 6: Run the start command locally**
 
 ```bash
 PORT=8123 sh -c 'uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000} --workers 2 --forwarded-allow-ips="*"' &
@@ -867,7 +881,7 @@ kill %1
 Run it with `.venv/bin` on `PATH`, or prefix `uvicorn` with `.venv/bin/`.
 Expected: `{"status":"ok","database":"healthy","fallback":false}`, then `200`.
 
-- [ ] **Step 7: Commit, push the branch, open the PR**
+- [x] **Step 7: Commit, push the branch, open the PR**
 
 ```bash
 git add railway.json .python-version tests/test_deploy_config.py docs/superpowers/plans/2026-10-08-railway-postgres-migration.md
@@ -922,26 +936,24 @@ If the pre-deploy fails, the deploy stops and nothing is served. Read the log:
 
 - [ ] **Step 3: Give the service a Railway URL and check the empty-database state**
 
-```bash
-railway domain --service web
-```
+The domain already exists (2026-10-13): `https://web-production-9277a.up.railway.app`. Running `railway domain --service web` again prints it rather than creating a second one.
 
-Expected: a `https://web-production-xxxx.up.railway.app` URL. With empty tables:
+Expected, with empty tables:
 - `/health` shows `"database":"healthy"`.
 - `/` shows the fallback profile (real name and headline) and no "Selected work". That's expected before the copy.
 - `/admin` returns 404.
 
-- [ ] **Step 4: Enable Postgres's public TCP proxy (temporary)**
+- [ ] **Step 4: Confirm Postgres's public TCP proxy is on (temporary)**
 
-Railway dashboard → `Postgres` → Settings → Networking → TCP Proxy → Enable.
+As of 2026-10-13 the proxy appears to be on already (`RAILWAY_TCP_PROXY_DOMAIN` is set), but `DATABASE_PUBLIC_URL` is missing. If the proxy is off, enable it: Railway dashboard → `Postgres` → Settings → Networking → TCP Proxy → Enable.
 
-Check the variable exists, without printing it:
+Check which variables exist, without printing any values:
 
 ```bash
-railway variables --service Postgres --json | python3 -c "import json,sys; print('DATABASE_PUBLIC_URL' in json.load(sys.stdin))"
+railway variables --service Postgres --json | python3 -c "import json,sys; v=json.load(sys.stdin); print({k: k in v for k in ('DATABASE_PUBLIC_URL','RAILWAY_TCP_PROXY_DOMAIN','RAILWAY_TCP_PROXY_PORT')})"
 ```
 
-Expected: `True`.
+Expected: `RAILWAY_TCP_PROXY_DOMAIN` and `RAILWAY_TCP_PROXY_PORT` are `True`. `DATABASE_PUBLIC_URL` may be `False`; Step 6 builds the URL from the proxy variables when it is.
 
 - [ ] **Step 5: Snapshot the VM's database and bring it to the laptop**
 
@@ -967,8 +979,10 @@ If the version isn't `d4a8f1c2e7b9`, stop. The VM's schema doesn't match the cod
 - [ ] **Step 6: Copy the VM's rows into Postgres**
 
 ```bash
-railway run --service Postgres -- sh -c 'TARGET_DATABASE_URL="$DATABASE_PUBLIC_URL" .venv/bin/python -m app.content_copy sqlite:///../railway-move/vm-content.db'
+railway run --service Postgres -- sh -c 'TARGET_DATABASE_URL="${DATABASE_PUBLIC_URL:-postgresql://$PGUSER:$PGPASSWORD@$RAILWAY_TCP_PROXY_DOMAIN:$RAILWAY_TCP_PROXY_PORT/$PGDATABASE}" .venv/bin/python -m app.content_copy sqlite:///../railway-move/vm-content.db'
 ```
+
+The URL is built and used inside the single-quoted `sh -c`, so your shell never expands or prints it. Railway's generated passwords are alphanumeric, so they need no URL escaping.
 
 Expected: the copy prints the same nine counts as Task 5 Step 5 (profiles 1, experiences 3, projects 3, skills 7, education 1, site_meta 2, volunteer_work 2, certifications 0, links 0) and exits 0. Exit 1 means Postgres already has content: stop and find out why before going further.
 
@@ -989,7 +1003,7 @@ Expected: `/health` → `"fallback":false`. The `/projects/` redirect starts wit
 
 Railway dashboard → `Postgres` → Settings → Networking → TCP Proxy → remove it.
 
-Then rerun the Step 4 check. Expected: `False`. The app is unaffected because it uses the private network.
+Then rerun the Step 4 check. Expected: all three `False`. The app is unaffected because it uses the private network.
 
 ---
 
@@ -1067,3 +1081,8 @@ The laptop SQLite file stops being the source of truth. Postgres on Railway is.
 - **Keep the fallback in step:** after any change to the profile, experience, projects, or `site_meta`, update `app/fallback_data.py` to match.
 - **Schema changes:** add a migration as before. Merging to `main` deploys it, and the pre-deploy step runs it before the new code serves traffic.
 - **Backups:** Railway's Postgres backups are configured on the Postgres service (Settings → Backups). Turn them on before cutover. The laptop SQLite stays as an offline snapshot of the content as of the copy.
+
+## Follow-ups (not part of the move)
+
+- **Config as Code deprecation.** Railway CLI 5.64 warns that `railway.json` is deprecated in favor of `.railway/railway.ts` (`railway config migrate`). Existing files keep working until 2026-12-01. Migrate after cutover, in its own PR, and keep `tests/test_deploy_config.py`'s guarantees (migrate only, no seed, proxy headers trusted) pointed at the new file.
+- **CI.** PR #5 has no status checks. A GitHub Actions job that runs the suite on SQLite and on a Postgres service container would catch Postgres-only regressions before a push to `main` deploys them.
