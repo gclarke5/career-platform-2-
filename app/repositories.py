@@ -9,10 +9,27 @@ class DatabaseUnavailableError(RuntimeError):
     """Raised when a profile read cannot be completed from the database."""
 
 
+# Set on a request's session after its first failed read, so the request's other reads go
+# straight to fallback instead of each waiting out its own connect timeout.
+_UNAVAILABLE = "database_unavailable"
+
+
+def _fail_fast(db: Session) -> None:
+    if db.info.get(_UNAVAILABLE):
+        raise DatabaseUnavailableError("Database already unavailable for this request")
+
+
+def _mark_unavailable(db: Session) -> None:
+    db.info[_UNAVAILABLE] = True
+
+
 def read_profile_data(db: Session) -> dict[str, str | dict[str, str]] | None:
+    _fail_fast(db)
     try:
         profile = db.scalar(select(Profile).order_by(Profile.id).limit(1))
     except SQLAlchemyError as exc:
+        db.rollback()
+        _mark_unavailable(db)
         raise DatabaseUnavailableError("Profile database read failed") from exc
 
     if profile is None:
@@ -36,10 +53,12 @@ def read_profile_data(db: Session) -> dict[str, str | dict[str, str]] | None:
 
 
 def _read_rows(db: Session, model: type) -> list:
+    _fail_fast(db)
     try:
         return list(db.scalars(select(model).order_by(model.id)))
     except SQLAlchemyError as exc:
         db.rollback()
+        _mark_unavailable(db)
         raise DatabaseUnavailableError(f"{model.__tablename__} database read failed") from exc
 
 
