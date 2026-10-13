@@ -31,19 +31,27 @@
 4. **`/admin` becomes public.** Only nginx on the VM blocks it (`location /admin { return 404; }`). On Railway, `GET /admin` would expose the admin payload, and `PUT /admin/profile` would let anyone rewrite the in-memory fallback profile.
 5. **Outages hang instead of falling back.** There's no connect timeout. With an unreachable Postgres, each read waits for the OS TCP timeout, so pages hang for minutes before the fallback renders.
 
-## Status (re-inspected 2026-10-13)
+## Status (end of 2026-10-13)
 
-Tasks 1–6 are done on `feat/railway-postgres` (8 commits, pushed). PR #5 is open and mergeable, has no CI checks and no review yet. What's left: Task 6 Step 8 (merge), then Tasks 7–8.
+Tasks 1–6 are merged (PR #5, `32b3336`). Task 7 is done except Step 8 (proxy off). Task 8: the apex `gavinclarke.me` serves from Railway; `www`, the cutover checks, VM retirement and the doc updates are left.
 
 | Item | Now |
 |---|---|
-| Tests | 51 passed on SQLite and 51 on local Postgres (`TEST_DATABASE_URL=postgresql://localhost/career_test`). The 51st, `test_migrations_build_the_schema_but_insert_no_content`, was added 2026-10-13: every deploy runs the migrations, so a data-inserting migration would seed Railway |
-| Copy dry-run | Re-run 2026-10-13 into local Postgres: the nine expected counts, a second run exits 1, and a new `skills` row gets id 8 |
-| VM backup | `~/career-platform-data/backups/career_platform-20261013T182841Z.db` on the VM: integrity `ok`, schema `d4a8f1c2e7b9`, dump identical to the live database |
-| Live site | Still the VM at `a417756`, which is also `origin/main`. Service restarted 2026-10-13 16:58 UTC, same commit |
-| `web` service | Still never deployed, no source. Only Railway's built-in variables, so Task 7 Step 1 is still needed. **It now has a domain:** `https://web-production-9277a.up.railway.app` (created by a `railway domain` check on 2026-10-13), so Task 7 Step 3 no longer creates one |
-| Postgres TCP proxy | **Looks enabled already:** `RAILWAY_TCP_PROXY_DOMAIN` and `RAILWAY_TCP_PROXY_PORT` exist on `Postgres`, but `DATABASE_PUBLIC_URL` does **not**. Task 7 Steps 4, 6 and 8 are adjusted for this |
-| Railway CLI | Warns that Config as Code (`railway.json`) is deprecated in favor of `.railway/railway.ts`. Existing files keep working until **2026-12-01**. Not a blocker; see Follow-ups |
+| Tests | 51 passed on SQLite and 51 on local Postgres. The 51st, `test_migrations_build_the_schema_but_insert_no_content`, fails if a migration inserts content, since every deploy runs them |
+| VM backup | `~/career-platform-data/backups/career_platform-20261013T182841Z.db` on the VM: integrity `ok`, schema `d4a8f1c2e7b9`, dump identical to the live database. That backup is what Task 7 Step 6 copied |
+| Railway `web` | Deployment `a05829ae` (`32b3336`), SUCCESS. Pre-deploy log shows all three upgrades to `d4a8f1c2e7b9`. Variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `ENVIRONMENT=production`, `RAILPACK_START_CMD` |
+| Railway Postgres | Schema `d4a8f1c2e7b9`; all 9 content tables match the VM's live database row for row (19 rows); every id sequence is past its max id |
+| Domains | `gavinclarke.me` (custom, port 8080, verified, certificate valid) and `web-production-9277a.up.railway.app` |
+| DNS (Cloudflare) | `@` CNAME → `dwaascah.up.railway.app`, DNS only, saved 2026-10-13 12:30:38 PDT; TXT `_railway-verify` saved 12:32:11 PDT. `www` A → `20.114.0.108` (still the VM). MX and SPF untouched |
+| Still open | Postgres TCP proxy is on (Task 7 Step 8). The extra service `career-platform-2-` (created when the repo was first connected through "New → GitHub Repo") still runs and should be deleted. `www` isn't moved |
+
+### What Railway actually does (learned 2026-10-13)
+
+- **`railway.json` is not applied to `web`.** Deployments showed no pre-deploy or start command from it. The pre-deploy command, health check and restart policy are now set on the service itself (through the API's `serviceInstanceUpdate`; `railway environment edit` reported "No changes to apply" and saved nothing). `railway.json` and `tests/test_deploy_config.py` still hold the same values, so keep the two in step.
+- **Railpack needs `RAILPACK_START_CMD`.** Once deploy settings exist on the service, Railpack's build fails with `No start command detected`, whether the service's start command is set or empty. The variable fixes it.
+- **`railway redeploy` reuses the previous deployment's settings.** Two redeploys after a settings change ran without the pre-deploy command. A fresh deploy of the latest commit (`serviceInstanceDeploy` with `latestCommit: true`, or a push to `main`) picks up current settings.
+- **`/health` only checks connectivity.** It reported `healthy` while Postgres had no tables and the pages showed the fallback.
+- **`railway domain` with no arguments creates a domain.** Use `railway domain list` to look.
 
 ## Global Constraints
 
@@ -890,7 +898,7 @@ git push -u origin feat/railway-postgres
 gh pr create --base main --title "Prepare for Railway and PostgreSQL" --body "Postgres driver and URL handling, Alembic follows DATABASE_URL, /admin off in production, Postgres test mode, content copy script, railway.json. Deploys migrate the schema only; content moves once from the VM (plan Task 7). No deploy happens until the Railway web service is connected."
 ```
 
-- [ ] **Step 8: Merge**
+- [x] **Step 8: Merge**
 
 Merge the PR once it's reviewed. The VM is unaffected: it only changes when someone runs `git pull` on it. And if it did pull, SQLite still works, with `/admin` still blocked by nginx.
 
@@ -902,7 +910,7 @@ Operational task. No code changes. Run commands from the project folder (linked 
 
 The first deploy creates empty tables, and nothing seeds them. The VM's rows arrive in Step 6, and that's the only time content is inserted.
 
-- [ ] **Step 1: Set the web service's variables (no deploy yet: there's no source)**
+- [x] **Step 1: Set the web service's variables (no deploy yet: there's no source)**
 
 ```bash
 railway variable set 'DATABASE_URL=${{Postgres.DATABASE_URL}}' --service web --skip-deploys
@@ -914,7 +922,7 @@ railway variables --service web --json | python3 -c "import json,sys; print(sort
 
 Expected: the key list includes `DATABASE_URL` and `ENVIRONMENT`. Use single quotes so your shell doesn't touch `${{…}}`. Railway resolves it to the private Postgres URL inside the project.
 
-- [ ] **Step 2: Connect the repo (this starts the first deploy)**
+- [x] **Step 2: Connect the repo (this starts the first deploy)**
 
 Railway dashboard → `renewed-strength` → `web` → Settings → Source → Connect Repo → `gclarke5/career-platform-2-`, branch `main`.
 
@@ -934,7 +942,7 @@ If the pre-deploy fails, the deploy stops and nothing is served. Read the log:
 - `connection refused` or a `localhost` host: `DATABASE_URL` isn't the `${{Postgres.DATABASE_URL}}` reference.
 - `alembic: not found`: Railpack didn't put the virtualenv on `PATH`. Change `preDeployCommand` to `["python -m alembic upgrade head"]` and the start command's `uvicorn` to `python -m uvicorn`, then push.
 
-- [ ] **Step 3: Give the service a Railway URL and check the empty-database state**
+- [x] **Step 3: Give the service a Railway URL and check the empty-database state**
 
 The domain already exists (2026-10-13): `https://web-production-9277a.up.railway.app`. Running `railway domain --service web` again prints it rather than creating a second one.
 
@@ -943,7 +951,7 @@ Expected, with empty tables:
 - `/` shows the fallback profile (real name and headline) and no "Selected work". That's expected before the copy.
 - `/admin` returns 404.
 
-- [ ] **Step 4: Confirm Postgres's public TCP proxy is on (temporary)**
+- [x] **Step 4: Confirm Postgres's public TCP proxy is on (temporary)**
 
 As of 2026-10-13 the proxy appears to be on already (`RAILWAY_TCP_PROXY_DOMAIN` is set), but `DATABASE_PUBLIC_URL` is missing. If the proxy is off, enable it: Railway dashboard → `Postgres` → Settings → Networking → TCP Proxy → Enable.
 
@@ -955,7 +963,7 @@ railway variables --service Postgres --json | python3 -c "import json,sys; v=jso
 
 Expected: `RAILWAY_TCP_PROXY_DOMAIN` and `RAILWAY_TCP_PROXY_PORT` are `True`. `DATABASE_PUBLIC_URL` may be `False`; Step 6 builds the URL from the proxy variables when it is.
 
-- [ ] **Step 5: Snapshot the VM's database and bring it to the laptop**
+- [x] **Step 5: Snapshot the VM's database and bring it to the laptop**
 
 The rows come from the VM, the live site's database, not the laptop copy. `.backup` takes a consistent snapshot even while the app has the file open; a plain `cp` could catch a half-written page. Use `${VM_IP}` with braces: in zsh, `$VM_IP:c…` is read as a variable modifier.
 
@@ -976,7 +984,7 @@ If the version isn't `d4a8f1c2e7b9`, stop. The VM's schema doesn't match the cod
 
 `../railway-move/` sits outside the repo, so the snapshot can't be committed.
 
-- [ ] **Step 6: Copy the VM's rows into Postgres**
+- [x] **Step 6: Copy the VM's rows into Postgres**
 
 ```bash
 railway run --service Postgres -- sh -c 'TARGET_DATABASE_URL="${DATABASE_PUBLIC_URL:-postgresql://$PGUSER:$PGPASSWORD@$RAILWAY_TCP_PROXY_DOMAIN:$RAILWAY_TCP_PROXY_PORT/$PGDATABASE}" .venv/bin/python -m app.content_copy sqlite:///../railway-move/vm-content.db'
@@ -986,7 +994,7 @@ The URL is built and used inside the single-quoted `sh -c`, so your shell never 
 
 Expected: the copy prints the same nine counts as Task 5 Step 5 (profiles 1, experiences 3, projects 3, skills 7, education 1, site_meta 2, volunteer_work 2, certifications 0, links 0) and exits 0. Exit 1 means Postgres already has content: stop and find out why before going further.
 
-- [ ] **Step 7: Verify on the Railway URL**
+- [x] **Step 7: Verify on the Railway URL**
 
 ```bash
 B=https://web-production-xxxx.up.railway.app   # from Step 3
@@ -1015,7 +1023,7 @@ DNS is at your registrar, so you'll make those changes yourself. The VM stays up
 
 At your registrar, set the TTL on the `gavinclarke.me` and `www` records to 300 seconds. Then wait out the old TTL (`dig gavinclarke.me +noall +answer` shows it) before Step 3, so the switch and any rollback take effect within minutes.
 
-- [ ] **Step 2: Add the custom domains in Railway**
+- [x] **Step 2: Add the custom domains in Railway** (apex only; `www` still on the VM)
 
 ```bash
 railway domain gavinclarke.me --service web
@@ -1026,7 +1034,7 @@ Expected: Railway prints the DNS records to create: a CNAME target, plus a TXT v
 
 **Decision for you:** the apex `gavinclarke.me` can only point at a CNAME target if your registrar supports CNAME flattening or ALIAS/ANAME records (Cloudflare, Namecheap's ALIAS, Porkbun, etc.). If yours doesn't, either move DNS to one that does, or make `www.gavinclarke.me` the main address and redirect the apex at the registrar.
 
-- [ ] **Step 3: Switch DNS**
+- [x] **Step 3: Switch DNS** (apex only; `www` still on the VM)
 
 At the registrar:
 - Replace the apex A record (`20.114.0.108`) with the record Railway gave.
