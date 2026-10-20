@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Projects | Career Platform{% endblock %}
+{% block title %}Projects · {{ profile.full_name }}{% endblock %}
+{% block description %}Finance, operations and predictive modeling projects by {{ profile.full_name }}.{% endblock %}
 {% block content %}
-<section class="container section">
-  <h1>Featured Projects</h1>
-  {% for project in projects %}
-  <article class="card">
-    <h2><a href="/projects/{{ project.slug }}">{{ project.title }}</a></h2>
-    <p>{{ project.short_summary }}</p>
-  </article>
-  {% endfor %}
+<section class="container section page-head">
+  <h1>Projects</h1>
+  <p class="lede">Models and analyses from my internships and coursework, with what each one was for and how I built it.</p>
+</section>
+<section class="container section-tight" aria-label="Project list">
+  {% set heading_level = "h2" %}{% set show_results = true %}
+  {% include "_project_list.html" %}
 </section>
 {% endblock %}

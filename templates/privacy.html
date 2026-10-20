@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Privacy · {{ profile.full_name }}{% endblock %}
+{% block description %}What this site collects when you visit, why, who receives it, and the choices you have.{% endblock %}
+{% block content %}
+<article class="container section case privacy">
+  <h1 class="case-title">Privacy</h1>
+  <p class="lede">This is a personal resume site. There are no accounts, forms or comments. If you agree, it collects visit statistics through Google Analytics. If you don't, nothing is sent to Google.</p>
+  <p class="muted">Last updated October 20, 2026</p>
+
+  <section aria-labelledby="analytics-heading">
+    <h2 id="analytics-heading">Google Analytics</h2>
+    <p>I use Google Analytics 4 to see which pages people read and which outside links they follow, such as my LinkedIn profile or my email address. This helps me tell which parts of the site are useful to recruiters and which aren't.</p>
+    <p>Google Analytics only runs if you click <strong>Accept</strong> on the banner at the bottom of the page. Until then, your browser doesn't load anything from Google and no Google Analytics cookies are set. After you accept, each page loads Google's tag from <code>googletagmanager.com</code> and sends Google:</p>
+    <ul class="bullets">
+      <li>the page you viewed, its title, and the page that sent you here</li>
+      <li>which outside links you click on this site</li>
+      <li>whether you scroll to the bottom of a page</li>
+      <li>your browser, device type, screen size and language</li>
+      <li>your IP address, which Google uses to estimate your general location (city or region). Google says Google Analytics 4 does not log or store IP addresses.</li>
+    </ul>
+    <p>Google Analytics stores two cookies in your browser so it can recognise repeat visits: <code>_ga</code> and <code>_ga_FVPBZ69VK0</code>. By default they last up to two years.</p>
+    <p>The tag tells Google not to use this data for Google signals, which links visits to signed-in Google accounts, or for ad personalisation. I see the data as totals and trends in the Google Analytics dashboard, not as a record of who you are. Google receives the data and handles it under its own terms and the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>. Google explains more in <a href="https://policies.google.com/technologies/partner-sites">how Google uses information from sites that use its services</a>.</p>
+  </section>
+
+  <section aria-labelledby="hosting-heading">
+    <h2 id="hosting-heading">Hosting and server logs</h2>
+    <p>The site runs on Railway. Like most web servers, it records each request: your IP address, the page requested, the time and whether it loaded. Railway keeps these logs, and I use them only to fix problems and keep the site running.</p>
+    <p>Visits to <code>www.gavinclarke.me</code> pass through Cloudflare, which redirects them to <code>gavinclarke.me</code>. Cloudflare handles your IP address and request details to do that.</p>
+  </section>
+
+  <section aria-labelledby="contact-heading">
+    <h2 id="contact-heading">If you email me</h2>
+    <p>If you use the email link, your message goes to me through my email provider like any other email. I use what you send only to reply to you.</p>
+    <p>Links to LinkedIn or other sites take you off this site. What those sites collect is covered by their own privacy policies.</p>
+  </section>
+
+  <section aria-labelledby="choices-heading">
+    <h2 id="choices-heading">Your choices</h2>
+    <p>Google Analytics is off unless you turn it on:</p>
+    <ul class="bullets">
+      <li><strong>Decline</strong>, or ignore the banner, and nothing is sent to Google.</li>
+      <li><strong>Accept</strong> to allow Google Analytics on this and later visits.</li>
+      <li>Change your mind at any time with <strong>Analytics settings</strong> in the footer. If you switch to Decline, collection stops and the site deletes its Google Analytics cookies from your browser. Anything already sent to Google stays in Google Analytics until its retention period ends.</li>
+    </ul>
+    <p>Your choice is saved in your browser's local storage under <code>analytics-consent</code>. It isn't sent to me or to Google. If you clear your browser data or use a different browser, the banner will ask again. If your browser blocks storage, it will ask on every page.</p>
+    <p>You can also block cookies in your browser, use Google's <a href="https://tools.google.com/dlpage/gaoptout">Google Analytics opt-out browser add-on</a>, or use a tracker blocker.</p>
+    <p>Server logs are kept whatever you choose, because the site can't load without the request.</p>
+  </section>
+
+  <section aria-labelledby="questions-heading">
+    <h2 id="questions-heading">Questions</h2>
+    <p>{% if profile.email %}Email me at <a href="mailto:{{ profile.email }}">{{ profile.email }}</a> with any questions about this page.{% else %}Use the <a href="/contact">contact page</a> with any questions about this page.{% endif %} If this setup changes, I'll update this page and the date at the top.</p>
+  </section>
+</article>
+{% endblock %}

@@ -1,19 +1,46 @@
 {% extends "base.html" %}
-{% block title %}{{ project.title }} | Career Platform{% endblock %}
+{% block title %}{{ project.title }} · {{ profile.full_name }}{% endblock %}
+{% block description %}{{ project.short_summary }}{% endblock %}
 {% block content %}
-<section class="container section">
-  <h1>{{ project.title }}</h1>
+<article class="container section case">
+  <p class="back"><a class="text-link" href="/projects">← All projects</a></p>
+  <h1 class="case-title">{{ project.title }}</h1>
+  <p class="work-meta">
+    {% if project.category %}<span class="tag">{{ project.category }}</span>{% endif %}
+    {% if project.tools %}<span>Built with {{ project.tools }}</span>{% endif %}
+  </p>
   <p class="lede">{{ project.short_summary }}</p>
-  <article class="card">
-    {% if project.description_points %}
-    <ul>
+
+  {% if project.metrics %}
+  <section class="case-result" aria-labelledby="result-heading">
+    <h2 id="result-heading">Result</h2>
+    <p>{{ project.metrics }}</p>
+  </section>
+  {% endif %}
+
+  {% if project.description_points %}
+  <section aria-labelledby="method-heading">
+    <h2 id="method-heading">What I did</h2>
+    <ul class="bullets">
       {% for point in project.description_points %}
       <li>{{ point }}</li>
       {% endfor %}
     </ul>
-    {% endif %}
-    {% if project.metrics %}<p><strong>Impact:</strong> {{ project.metrics }}</p>{% endif %}
-    {% if project.tools %}<p><strong>Tools:</strong> {{ project.tools }}</p>{% endif %}
-  </article>
-</section>
+  </section>
+  {% endif %}
+
+  {% if project.link_url or project.case_study_url %}
+  <p class="cta-row">
+    {% if project.link_url %}<a class="button secondary" href="{{ project.link_url }}">View the work</a>{% endif %}
+    {% if project.case_study_url %}<a class="button secondary" href="{{ project.case_study_url }}">Read the case study</a>{% endif %}
+  </p>
+  {% endif %}
+
+  {% if next_project %}
+  <nav class="next" aria-label="Next project">
+    <span class="next-label">Next project</span>
+    <a href="/projects/{{ next_project.slug }}">{{ next_project.title }} →</a>
+  </nav>
+  {% endif %}
+</article>
 {% endblock %}

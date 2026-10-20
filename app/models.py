@@ -42,6 +42,7 @@ class Project(Base):
     description: Mapped[str | None] = mapped_column(Text)
     metrics: Mapped[str | None] = mapped_column(Text)
     tools: Mapped[str | None] = mapped_column(Text)
+    category: Mapped[str | None] = mapped_column(String(80))
     link_url: Mapped[str | None] = mapped_column(String(255))
     case_study_url: Mapped[str | None] = mapped_column(String(255))
 

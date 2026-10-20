@@ -2,17 +2,34 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.models import Education, Experience, Profile, Project, Skill, VolunteerWork
+from app.models import Education, Experience, Profile, Project, SiteMeta, Skill, VolunteerWork
 
 
 class DatabaseUnavailableError(RuntimeError):
     """Raised when a profile read cannot be completed from the database."""
 
 
+# Set on a request's session after its first failed read, so the request's other reads go
+# straight to fallback instead of each waiting out its own connect timeout.
+_UNAVAILABLE = "database_unavailable"
+
+
+def _fail_fast(db: Session) -> None:
+    if db.info.get(_UNAVAILABLE):
+        raise DatabaseUnavailableError("Database already unavailable for this request")
+
+
+def _mark_unavailable(db: Session) -> None:
+    db.info[_UNAVAILABLE] = True
+
+
 def read_profile_data(db: Session) -> dict[str, str | dict[str, str]] | None:
+    _fail_fast(db)
     try:
         profile = db.scalar(select(Profile).order_by(Profile.id).limit(1))
     except SQLAlchemyError as exc:
+        db.rollback()
+        _mark_unavailable(db)
         raise DatabaseUnavailableError("Profile database read failed") from exc
 
     if profile is None:
@@ -36,10 +53,12 @@ def read_profile_data(db: Session) -> dict[str, str | dict[str, str]] | None:
 
 
 def _read_rows(db: Session, model: type) -> list:
+    _fail_fast(db)
     try:
         return list(db.scalars(select(model).order_by(model.id)))
     except SQLAlchemyError as exc:
         db.rollback()
+        _mark_unavailable(db)
         raise DatabaseUnavailableError(f"{model.__tablename__} database read failed") from exc
 
 
@@ -73,6 +92,7 @@ def read_projects(db: Session) -> list[dict]:
             "description_points": _lines(row.description),
             "metrics": row.metrics,
             "tools": row.tools,
+            "category": row.category,
             "link_url": row.link_url,
             "case_study_url": row.case_study_url,
         }
@@ -101,3 +121,7 @@ def read_volunteer_work(db: Session) -> list[dict]:
         }
         for row in _read_rows(db, VolunteerWork)
     ]
+
+
+def read_site_meta(db: Session) -> dict[str, str]:
+    return {row.key: row.value for row in _read_rows(db, SiteMeta)}

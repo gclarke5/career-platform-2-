@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Page not found · {{ profile.full_name }}{% endblock %}
+{% block content %}
+<section class="container section page-head">
+  <h1>That page isn't here</h1>
+  <p class="lede">The link may be out of date, or a project may have moved. Everything on this site is reachable from these pages:</p>
+  <p class="cta-row">
+    <a class="button primary" href="/">Home</a>
+    <a class="button secondary" href="/projects">Projects</a>
+    <a class="button secondary" href="/resume">Resume</a>
+  </p>
+</section>
+{% endblock %}
