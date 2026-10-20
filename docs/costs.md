@@ -34,3 +34,16 @@ Cost Management:
 
 The VM is deallocated, so compute no longer bills, but the static public IP and
 the disk still do for as long as they exist.
+
+## Domain
+
+| Item | Value |
+|---|---|
+| Domain | `gavinclarke.me` |
+| Registrar | Namecheap |
+| Cost | $0 (free first year through the GitHub Student Developer Pack) |
+| Registered | 2026-10-08 |
+| Expires | 2027-10-08 |
+
+Keeping the domain past 2027-10-08 means renewing at Namecheap's regular `.me`
+price.
