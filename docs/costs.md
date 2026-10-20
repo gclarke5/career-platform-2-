@@ -47,3 +47,10 @@ the disk still do for as long as they exist.
 
 Keeping the domain past 2027-10-08 means renewing at Namecheap's regular `.me`
 price.
+
+## Other services
+
+| Service | Use | Cost |
+|---|---|---|
+| Zoho Mail | Email at `gavinclarke.me` | $0 (free plan) |
+| Cloudflare | DNS and the `www` redirect | $0 (free plan) |
