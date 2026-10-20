@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./career_platform.db"
     railway_database_url: str | None = None
     environment: str = "development"
+    # Google Analytics 4 measurement ID. Empty (the default) leaves analytics and the consent
+    # banner off entirely, so local development and tests never contact Google.
+    ga_measurement_id: str = ""
 
     @field_validator("database_url")
     @classmethod

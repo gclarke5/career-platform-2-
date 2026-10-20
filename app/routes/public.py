@@ -3,12 +3,14 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.services.content_service import get_projects, get_resume_payload, get_site_meta
 from app.services.profile_service import get_profile_payload
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+templates.env.globals["analytics_id"] = settings.ga_measurement_id
 
 
 def _page(request: Request, db: Session, template: str, **context):
@@ -47,3 +49,8 @@ def project_detail(request: Request, slug: str, db: Session = Depends(get_db)):
 @router.api_route("/contact", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def contact(request: Request, db: Session = Depends(get_db)):
     return _page(request, db, "contact.html")
+
+
+@router.api_route("/privacy", methods=["GET", "HEAD"], response_class=HTMLResponse)
+def privacy(request: Request, db: Session = Depends(get_db)):
+    return _page(request, db, "privacy.html")

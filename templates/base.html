@@ -38,9 +38,23 @@
           {% if profile.email %}<a href="mailto:{{ profile.email }}">{{ profile.email }}</a>{% endif %}
           {% if profile.linkedin_url %}<a href="{{ profile.linkedin_url }}" rel="me">LinkedIn</a>{% endif %}
           {% if profile.github_url %}<a href="{{ profile.github_url }}" rel="me">GitHub</a>{% endif %}
+          <a href="/privacy"{% if path == "/privacy" %} aria-current="page"{% endif %}>Privacy</a>
+          {% if analytics_id %}<button type="button" class="footer-button" id="consent-settings" hidden>Analytics settings</button>{% endif %}
         </p>
       </div>
     </footer>
+    {% endif %}
+    {% if analytics_id %}
+    <div class="consent" id="consent-banner" role="region" aria-label="Analytics choice" hidden>
+      <div class="container consent-inner">
+        <p>Can I use Google Analytics to count page views, scrolling and outbound link clicks? It sets cookies and sends visit data to Google. Nothing loads unless you accept. <a href="/privacy">Privacy</a></p>
+        <div class="consent-actions">
+          <button type="button" class="button primary" data-consent="granted">Accept</button>
+          <button type="button" class="button secondary" data-consent="denied">Decline</button>
+        </div>
+      </div>
+    </div>
+    <script src="/static/js/consent.js" data-ga-id="{{ analytics_id }}" defer></script>
     {% endif %}
   </body>
 </html>
