@@ -93,8 +93,8 @@ Postgres is the source of truth; the local SQLite file is not.
 1. Turn on the Postgres TCP proxy (Railway → `Postgres` → Settings →
    Networking), then open a shell with `railway connect Postgres`.
 2. Make the change, then turn the proxy off again.
-3. If you changed the profile, experience, projects or `site_meta`, update
-   `app/fallback_data.py` to match.
+3. If you changed the profile, experience or `site_meta`, update
+   `app/fallback_data.py` to match. Projects have no fallback copy.
 
 Schema changes are ordinary Alembic migrations; merging to `main` applies them.
 
@@ -111,7 +111,10 @@ railway domain list -s web
 
 If the database is unreachable, every public page still renders the profile
 from `app/fallback_data.py`, and connections fail fast so pages don't hang.
-`/health` reports `{"database": "unavailable", "fallback": true}` in that
+Projects have no fallback: `/`, `/projects` and `/projects/<slug>` say
+"Projects temporarily unavailable" and return **503**, and the next request
+after the database recovers shows them again, with no restart. An empty
+`projects` table shows "No projects yet" with a 200. `/health` reports `{"database": "unavailable", "fallback": true}` in that
 state. It checks connectivity only, so `"healthy"` doesn't mean the tables
 have content.
 

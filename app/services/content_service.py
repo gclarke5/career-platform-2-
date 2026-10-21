@@ -4,7 +4,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.fallback_data import fallback_experience, fallback_projects, fallback_site_meta
+from app.fallback_data import fallback_experience, fallback_site_meta
 from app.repositories import (
     DatabaseUnavailableError,
     read_education,
@@ -30,12 +30,13 @@ def get_experience(db_session: Session) -> list[dict]:
     return _read_or_fallback(db_session, read_experiences, fallback_experience)
 
 
-def get_projects(db_session: Session) -> list[dict]:
-    return _read_or_fallback(db_session, read_projects, fallback_projects)
-
-
-def get_project(db_session: Session, slug: str) -> dict | None:
-    return next((item for item in get_projects(db_session) if item["slug"] == slug), None)
+def get_projects(db_session: Session) -> list[dict] | None:
+    """Projects from the database, or None if it can't be read. No fallback: pages say so instead."""
+    try:
+        return read_projects(db_session)
+    except DatabaseUnavailableError:
+        logger.warning("Database unavailable; projects not shown", exc_info=True)
+        return None
 
 
 def get_education(db_session: Session) -> list[dict]:

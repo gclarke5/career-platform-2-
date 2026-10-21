@@ -48,51 +48,6 @@ fallback_experience = [
     },
 ]
 
-fallback_projects = [
-    {
-        "title": "Portfolio Performance and Asset Allocation Analysis",
-        "slug": "portfolio-performance-asset-allocation",
-        "short_summary": "Evaluated diversified client portfolios ranging from $100K-$30M in assets.",
-        "description_points": [
-            "Analyzed portfolio returns, volatility and sector allocation using Excel",
-            "Compared portfolio performance against benchmark indices and identified areas for rebalancing",
-            "Presented findings to advisors to support quarterly client reviews",
-        ],
-        "metrics": None,
-        "tools": "Excel",
-        "category": "Finance",
-    },
-    {
-        "title": "Operations and Forecasting Project",
-        "slug": "operations-forecasting-intel",
-        "short_summary": "Projected Intel's chip demand with regression and time series forecasting in Excel (Operations and Supply Chain Management course).",
-        "description_points": [
-            "Performed data cleaning, regression analysis, and time series forecasting in Excel to project Intel's chip demand",
-            "Utilized functions such as EOMONTH, SUMIFS, and regression modeling to identify KPIs of chip sales",
-            "Completed trend, seasonal and moving average projections on given data and evaluated which was the most accurate",
-            "Created data visualizations based on projections and wrote a memo recommending the most optimal strategy",
-            "Developed skills in forecasting, cost analysis and operations planning using real world data and constraints",
-        ],
-        "metrics": None,
-        "tools": "Excel",
-        "category": "Operations & supply chain",
-    },
-    {
-        "title": "MLB Predictive Model",
-        "slug": "mlb-predictive-model",
-        "short_summary": "Built a fully functional MLB game-outcome predictive model in Google Sheets from scratch (Orb Analytics).",
-        "description_points": [
-            "Utilized functions such as IMPORTHTML to retrieve data from websites and implement it into the model",
-            "Used team and individual stats for hitting and pitching (ERA, SGL%, Batting AVG%, etc.)",
-            "Provided the project to my boss, who used the model as a base for their current predictive model",
-            "Developed skills in sheet formulas, data research, and predictive modeling based on previous MLB seasons data",
-        ],
-        "metrics": "Adopted as the base for the company's current predictive model",
-        "tools": "Google Sheets",
-        "category": "Predictive modeling",
-    },
-]
-
 fallback_site_meta = {
     "availability": "Open to analyst internships and full-time roles in finance, operations and supply chain. Graduating May 2027.",
     "proof_points": "\n".join(

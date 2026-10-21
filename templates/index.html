@@ -30,7 +30,6 @@
 </section>
 {% endif %}
 
-{% if projects %}
 <section class="container section" aria-labelledby="work-heading">
   <div class="section-head">
     <h2 id="work-heading">Selected work</h2>
@@ -39,5 +38,4 @@
   {% set heading_level = "h3" %}{% set show_results = false %}
   {% include "_project_list.html" %}
 </section>
-{% endif %}
 {% endblock %}
