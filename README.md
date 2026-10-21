@@ -117,9 +117,52 @@ have content.
 
 ## The old Azure VM
 
-The site used to run on an Azure VM (nginx, systemd, SQLite). No DNS record
-points to it any more, but it stays up, unchanged, as the rollback: pointing
-`@` back to its A record (`20.114.0.108`) restores the old host. It hasn't been
-retired. See `docs/superpowers/plans/2026-10-08-railway-postgres-migration.md`
-for the move and `docs/superpowers/plans/2026-10-01-operate-the-vm.md` for the
-VM setup.
+The site used to run on an Azure VM, `vm-career-platform` in
+`rg-career-platform` (nginx, systemd, SQLite). No DNS record points to it any
+more. It is **deallocated on purpose**: it isn't deleted, and its disk, its
+SQLite data and its static IP (`20.114.0.108`) are kept, but it serves nothing
+until it is started. An auto-shutdown schedule also turns it off at 19:00
+Pacific every day. The disk and IP still cost a little each month; see
+[`docs/costs.md`](docs/costs.md).
+
+nginx only answers for `gavinclarke.me`, so a request to the bare IP gets a
+404. To roll back to the VM:
+
+1. Start it, and turn off auto-shutdown so it stays up:
+
+   ```bash
+   az vm start -g rg-career-platform -n vm-career-platform
+   az vm auto-shutdown -g rg-career-platform -n vm-career-platform --off
+   ```
+
+2. Check that it serves the site before moving any traffic. Expect
+   `Server: nginx/1.24.0 (Ubuntu)` and `"fallback": false`:
+
+   ```bash
+   curl -sI --resolve gavinclarke.me:443:20.114.0.108 https://gavinclarke.me/ | grep -i ^server
+   curl -s --resolve gavinclarke.me:443:20.114.0.108 https://gavinclarke.me/health
+   ```
+
+   Certbot only renews the VM's certificate while the VM is running. If
+   `curl` reports a certificate error, SSH in and run `sudo certbot renew`.
+   The SSH rule only allows one home IP, so from anywhere else you'll need a
+   temporary rule (see `docs/evidence/ex03.md`, section 4).
+
+3. In Cloudflare, change `@` from the CNAME to an A record for `20.114.0.108`,
+   DNS only (grey cloud).
+
+The VM has the content as it was on the day of the move. Anything changed in
+Postgres since then isn't on it.
+
+To stop it again, deallocate it. `--off` above deletes the auto-shutdown
+schedule, so set it again too (the CLI takes UTC: `0200` is 19:00 Pacific
+daylight time):
+
+```bash
+az vm deallocate -g rg-career-platform -n vm-career-platform
+az vm auto-shutdown -g rg-career-platform -n vm-career-platform --time 0200
+```
+
+See `docs/superpowers/plans/2026-10-08-railway-postgres-migration.md` for the
+move and `docs/superpowers/plans/2026-10-01-operate-the-vm.md` for the VM
+setup.
