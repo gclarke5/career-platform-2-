@@ -47,13 +47,17 @@ def test_pages_fall_back_quickly_when_postgres_is_unreachable(monkeypatch):
     response = TestClient(create_app()).get("/")
     elapsed = time.monotonic() - started
 
-    assert response.status_code == 200
+    assert response.status_code == 503
     assert "Gavin Clarke" in response.text
+    assert "Projects temporarily unavailable" in response.text
     assert elapsed < 10
 
 
-@pytest.mark.parametrize("path", ["/", "/resume", "/projects", "/projects/mlb-predictive-model", "/contact"])
-def test_one_failed_connection_per_request_sends_every_page_to_fallback(monkeypatch, path):
+@pytest.mark.parametrize(
+    ("path", "status"),
+    [("/", 503), ("/resume", 200), ("/projects", 503), ("/projects/mlb-predictive-model", 503), ("/contact", 200)],
+)
+def test_one_failed_connection_per_request_sends_every_page_to_fallback(monkeypatch, path, status):
     # /resume makes six reads; each must not wait out its own connect timeout.
     url = "postgresql+psycopg://user:pass@10.255.255.1:5432/db"
     engine = create_engine(url, **engine_options(url))
@@ -63,7 +67,8 @@ def test_one_failed_connection_per_request_sends_every_page_to_fallback(monkeypa
     response = TestClient(create_app()).get(path)
     elapsed = time.monotonic() - started
 
-    assert response.status_code == 200
+    # Pages that list projects return 503; the rest still render. All keep the profile.
+    assert response.status_code == status
     assert "Gavin Clarke" in response.text
     assert elapsed < 5, f"{path} took {elapsed:.1f}s"
 

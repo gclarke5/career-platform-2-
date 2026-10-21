@@ -1,4 +1,10 @@
-{# Shared project list. Set `heading_level` to "h2" or "h3" before including. #}
+{# Shared project list. Set `heading_level` to "h2" or "h3" before including.
+   `projects` is None when the database can't be read. #}
+{% if projects is none %}
+<p class="work-summary">Projects temporarily unavailable. Please try again shortly.</p>
+{% elif not projects %}
+<p class="work-summary">No projects yet.</p>
+{% else %}
 <ol class="work-list" role="list">
   {% for project in projects %}
   <li class="work-item">
@@ -12,3 +18,4 @@
   </li>
   {% endfor %}
 </ol>
+{% endif %}
