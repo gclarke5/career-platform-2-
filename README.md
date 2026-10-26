@@ -520,24 +520,21 @@ The details and amounts are in [`docs/costs.md`](docs/costs.md).
 
 ## Reflection
 
-*Draft for me to rewrite in my own words before submitting.*
+**What I understand better:**
 
-- **What I understand better:**
-  - A request passes through several layers: DNS, the TLS endpoint, a proxy,
-    the app server and the database. When something breaks, checking each
-    layer on its own (with `dig`, `curl -v` and the logs) finds the cause
-    faster than guessing.
-  - Moving to a platform didn't remove my responsibilities. It changed them:
-    the OS and certificates went to Railway, but data, backups, migrations,
-    secrets and costs are still mine.
-  - Code and data roll back separately.
-- **What I'd change:**
-  - Write the before-MX test and the timed reboot test into the plan, and run
-    them when they're due, not afterward.
-  - Pick a resume-style email address from the start.
-  - Add CI that runs the tests on every PR.
-  - Check sooner that each deploy actually happened. That's what `"commit"`
-    in `/health` now does.
+One of the biggest things I learned is how layered this project is. From DNS, to TLS, to the Proxy, the application server and finally the database. When troubleshooting, understanding these concepts made it much easier and made my prompting with my claude agent in VS code more efficient. Instead of “guestimating” the issue, I went through a structured process of asking contextual questions and targeting possible diagnoses based on the findings. For example, the dig, curl -v was very important in narrowing down the root cause of an issue.
+
+Another important thing I learned is how to properly use Railway after successfully migrating my site from Azure VM. I assumed Railway would manage more than Azure VM and I would not have to do as much maintenance. However, that was false. I was still responsible for managing data, migrations and most importantly billing costs. This gave me great experience with getting comfortable with a system like Railway and has inspired me to use it further for future website endeavors I have planned.
+
+Lastly, I learned that just because my agent generated the code, did not automatically mean it would rollback along with my data. I could use past deployments for rollbacks but deployments and database changes needed to be managed individually.
+
+**What I would change:**
+
+If I were to do this project again, I would have put tests and verifications earlier on in the development process. I would have placed a test before-MX test and timed reboot test in my original plan instead of just reversing the process and going backwards. That would have organized the process better but I also could have prompted Claude better as I repeated some confusing prompts during this process that made the agent double guess its decisions and rethink it.
+
+I also would have adjusted to the format of the website earlier on. That way I could check up on the live site format more consistently throughout the project thus giving me more opportunity to format it closer to my exact liking. This would include doing CI tests automatically wherever I made a pull request. This would allow me to find possible issues earlier on in the pre deployment process.
+
+Finally, I would have checked up on deployments to the railway more myself as opposed to just relying more so on the claude agent in VS code. This is more of a self reflection as this does not reflect the process or agents decision making. At times I got lazy and I simply would just pay more attention to each deployment and reflect on it by myself without help of ai so I can not only understand the process more, but make better prompts and decisions with my agent moving forward.
 
 ## Project history
 
