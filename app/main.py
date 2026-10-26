@@ -36,13 +36,16 @@ def create_app() -> FastAPI:
             status_code=404,
         )
 
+    # Railway sets this on each GitHub deploy, so /health names the commit that's live.
+    commit = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")[:7] or None
+
     @app.api_route("/health", methods=["GET", "HEAD"])
-    def health() -> dict[str, str | bool]:
+    def health() -> dict[str, str | bool | None]:
         try:
             with engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
         except Exception:
-            return {"status": "degraded", "database": "unavailable", "fallback": True}
-        return {"status": "ok", "database": "healthy", "fallback": False}
+            return {"status": "degraded", "database": "unavailable", "fallback": True, "commit": commit}
+        return {"status": "ok", "database": "healthy", "fallback": False, "commit": commit}
 
     return app
