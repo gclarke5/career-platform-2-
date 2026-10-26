@@ -134,6 +134,11 @@ until it is started. An auto-shutdown schedule also turns it off at 19:00
 Pacific every day. The disk and IP still cost a little each month; see
 [`docs/costs.md`](docs/costs.md).
 
+**As of 2026-10-26 the Azure free-trial subscription is disabled and read-only**,
+so `az vm start` is refused and the steps below can't run until it is
+re-enabled. See [`docs/evidence/azure-vm.md`](docs/evidence/azure-vm.md) for
+how the VM ran.
+
 nginx only answers for `gavinclarke.me`, so a request to the bare IP gets a
 404. To roll back to the VM:
 
