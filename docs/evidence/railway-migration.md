@@ -213,7 +213,7 @@ Nothing in Postgres was changed.
 | Application code | **Me** | **Me** |
 | Configuration | **Me**: `.env` on the VM | **Me**: Railway variables and service settings, and keeping `railway.json` matched to them |
 | Database software | **Me**: the `sqlite3` package on the OS | Railway runs PostgreSQL (18.6 today), but **I** decide on major-version upgrades |
-| Data | **Me**: backups, the file's permissions and disk | **Me**: the content, edits, backups and restore tests. Railway stores it on its volume |
+| Data | **Me**: backups, the file's permissions and disk | **Me**: the content, edits, backups and restore tests (no built-in backups on the Trial). Railway stores it on its volume |
 | DNS | **Me**, at Cloudflare | **Me**, at Cloudflare |
 
 **What's still my job on Railway:**
@@ -223,9 +223,12 @@ Nothing in Postgres was changed.
   [costs](../costs.md).
 - **Keep packages up to date** in `uv.lock` for security fixes. Railway
   rebuilds with whatever versions I pin.
-- **Back up the data.** Turn on, and test restoring from, Railway's Postgres
-  backups (Postgres → Backups). Railway doesn't restore anything for me
-  automatically.
+- **Back up the data myself.** Railway's dashboard shows no option to turn
+  on Postgres backups on the Trial plan; Railway's built-in backups come with
+  its paid plans. So I take my own: the copy in section 6, step 2 makes a
+  SQLite file of everything in Postgres (tested on 2026-10-26). I run it after
+  each content change and keep the file outside the repo. My local `pg_dump`
+  is version 17, which can't dump Railway's PostgreSQL 18.
 - **Write and test migrations.** A broken migration stops the deploy.
 - **Look after the secrets and access:**
   - keep the database private (Public access off);
