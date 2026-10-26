@@ -118,7 +118,101 @@ railway status                          # services and the linked one
 railway deployment list -s web          # recent deployments
 railway logs -s web --latest --deployment
 railway domain list -s web
+curl -s https://gavinclarke.me/health   # "commit" is the short SHA that's live
 ```
+
+## Rollback
+
+Code and data roll back separately. Redeploying an old version restores the
+code only: it never undoes a migration or a content edit.
+
+### Before any risky change: back up the data
+
+Railway's Trial has no built-in Postgres backups, so take one yourself. This
+copies everything in Postgres into a new SQLite file, without changing
+Postgres:
+
+```bash
+B=../railway-move/postgres-backup-$(date +%F).db      # outside the repo; a new name each time
+railway connect Postgres --tunnel-only --port 15432 &  # private tunnel; stop it with: kill %1
+DATABASE_URL=sqlite:///$B uv run alembic upgrade head
+railway run --service Postgres -- sh -c 'TARGET_DATABASE_URL=sqlite:///'"$B"' \
+  .venv/bin/python -m app.content_copy "postgresql+psycopg://$PGUSER:$PGPASSWORD@127.0.0.1:15432/$PGDATABASE"'
+sqlite3 -readonly $B "pragma integrity_check; select version_num from alembic_version"
+```
+
+The password stays inside the single-quoted `sh -c`, so it's never printed.
+The copy refuses to write into a file that already has rows.
+
+### Application code (no migration involved)
+
+1. **Find the last good version:** `railway deployment list -s web` lists
+   deployments with their commits. `/health`'s `"commit"` shows which one is
+   live now.
+2. **Revert it in Git (preferred):** `git revert <bad commit>` on a branch,
+   run the tests, open a PR and merge it. Railway deploys the revert like any
+   other change, and `main` matches what's live again.
+3. **Faster, while the revert is prepared:** Railway dashboard → `web` →
+   Deployments → the last good deployment → ⋮ → **Rollback**. This puts that
+   build back without touching Git, so follow up with the revert, or the next
+   push to `main` brings the bad code back. If an old deployment doesn't
+   offer Rollback, use the revert.
+4. **Check:** `/health`'s `"commit"` shows the good commit, and the pages that
+   broke work again.
+
+Don't use `railway redeploy`: it reruns the *latest* deployment, not an older
+one.
+
+### Schema changes (a migration was involved)
+
+Old code can't start against a newer schema. Railway's pre-deploy step
+(`alembic upgrade head`) fails with `Can't locate revision identified by '…'`,
+because the old code doesn't have the newer migration file, and the deploy
+stops before serving. So downgrade the database **first, using the current
+code**, which still has the migration's `downgrade()`:
+
+1. **Back up** (above). A downgrade can drop columns or tables, and the data
+   in them.
+2. **Find the target revision:** look up the old commit's newest file in
+   `migrations/versions/` and note its revision ID.
+3. **Downgrade through the tunnel:**
+
+   ```bash
+   railway connect Postgres --tunnel-only --port 15432 &
+   railway run --service Postgres -- sh -c 'DATABASE_URL="postgresql+psycopg://$PGUSER:$PGPASSWORD@127.0.0.1:15432/$PGDATABASE" \
+     .venv/bin/alembic downgrade <old revision>'
+   ```
+
+4. **Roll the code back** as in "Application code" above. The pre-deploy step
+   now finds the database already at the old code's head.
+5. **Check:** `/health` is healthy with `"fallback": false`, and the pages
+   render their content.
+
+If the migration only added something the old code ignores (a new nullable
+column or table), you can also leave the database alone. Roll back by
+reverting only the code that uses it, and keep the migration.
+
+### Content (a bad edit in Postgres)
+
+- **One row or a few:** fix them in `railway connect Postgres`, inside
+  `BEGIN;` … `COMMIT;`, using the backup file as the reference
+  (`sqlite3 -readonly <backup> "select … "`).
+- **Everything, from a backup:** empty the content tables and copy the backup
+  back in. The schema must already be at the backup's revision (`select
+  version_num from alembic_version` on both):
+
+  ```bash
+  railway connect Postgres --tunnel-only --port 15432 &
+  railway run --service Postgres -- sh -c 'psql "postgresql://$PGUSER:$PGPASSWORD@127.0.0.1:15432/$PGDATABASE" -c \
+    "TRUNCATE profiles, experiences, projects, skills, education, certifications, links, site_meta, volunteer_work RESTART IDENTITY;"'
+  railway run --service Postgres -- sh -c 'TARGET_DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@127.0.0.1:15432/$PGDATABASE" \
+    .venv/bin/python -m app.content_copy sqlite:///../railway-move/postgres-backup-YYYY-MM-DD.db'
+  ```
+
+  Between the `TRUNCATE` and the copy, pages say "Projects temporarily
+  unavailable" or "No projects yet", and the profile shows the fallback. The
+  copy resets the id sequences, so new rows still get fresh ids. This restore
+  was tested on a local Postgres on 2026-10-26.
 
 ## Fallback
 
