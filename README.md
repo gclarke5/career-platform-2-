@@ -91,9 +91,14 @@ into a database that already has rows.
 
 Postgres is the source of truth; the local SQLite file is not.
 
-1. Turn on the Postgres TCP proxy (Railway → `Postgres` → Settings →
-   Networking), then open a shell with `railway connect Postgres`.
-2. Make the change, then turn the proxy off again.
+1. Open a shell with `railway connect Postgres`. It reaches the database
+   through an encrypted SSH tunnel, so Postgres never needs public access
+   (leave Railway → `Postgres` → Settings → Networking → Public access off).
+   The tunnel needs an SSH key registered with Railway. This laptop's key is
+   registered as `gavin-laptop`; on another machine, run
+   `railway ssh keys add` once first (`railway ssh keys list` shows them).
+2. Make the change in a transaction (`BEGIN;` … `COMMIT;`). The site shows it
+   on the next request, with no redeploy.
 3. If you changed the profile, experience or `site_meta`, update
    `app/fallback_data.py` to match. Projects have no fallback copy.
 
