@@ -81,6 +81,9 @@ HTTPS also worked: [Exercise 04](ex04.md) shows HTTP redirecting to
 | **Whole app crash** (2026-10-08, `kill -9` on uvicorn's main process) | systemd restarted the service 2 seconds later with a new process and 2 new workers. `NRestarts` went from 0 to 1, and `/health` was healthy |
 | **VM start from deallocated** (2026-10-20) | I started the stopped VM with `az vm start` and didn't log in. The site answered over HTTPS from `Server: nginx/1.24.0 (Ubuntu)` with `{"status":"ok","database":"healthy","fallback":false}`, so nginx and the app had both started on their own at boot (see [Exercise 03](ex03.md), section 2) |
 
+**Also not recorded:** a Certbot renewal check (`sudo certbot renew --dry-run`)
+while the VM was live. See [Domain and HTTPS](domain-https.md), section 5.
+
 **What's missing:** I didn't record a timed reboot test, comparing the VM's
 boot time (`uptime -s`) with the service's start time. When I tried to run one
 on 2026-10-26, Azure refused to start the VM because my free-trial

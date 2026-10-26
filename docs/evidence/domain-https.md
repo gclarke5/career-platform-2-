@@ -97,7 +97,7 @@ expire on 2027-01-11.
 | | On the Azure VM (2026-10-08 to 2026-10-13) | On Railway (since 2026-10-13) |
 |---|---|---|
 | `@` record | A → `20.114.0.108`, DNS only | CNAME → `dwaascah.up.railway.app`, DNS only |
-| Certificate | Let's Encrypt from Certbot on the VM, renewed by Certbot's timer on the VM | Let's Encrypt from Railway, renewed by Railway |
+| Certificate | Let's Encrypt from Certbot on the VM. Renewal was left to Certbot's automatic timer, but I never recorded a check of it (see below) | Let's Encrypt from Railway, renewed by Railway |
 | Server header | `nginx/1.24.0 (Ubuntu)` | `railway-hikari` |
 
 On 2026-10-13 I changed `@` in Cloudflare from the VM's A record to the Railway
@@ -112,3 +112,11 @@ from when the VM served the site.
 
 Since the VM stopped, no record points to it, and the site keeps one address:
 `https://gavinclarke.me`.
+
+**Not verified: renewal on the VM.** I didn't save `sudo certbot renew
+--dry-run` or `systemctl list-timers certbot.timer` output while the VM was
+the live host. [Exercise 04](ex04.md) shows the HTTPS redirect and how I
+checked the certificate, but not its dates. The check can't be run now,
+because the Azure subscription is disabled. Renewal only runs while the VM is
+on, so after any long shutdown the README's VM rollback starts with
+`sudo certbot renew`.

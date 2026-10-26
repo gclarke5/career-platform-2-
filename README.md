@@ -488,6 +488,9 @@ secured the site on the VM.
   start, so I couldn't run a timed reboot test, and the rollback to the VM
   can't run until the subscription is re-enabled. The VM's resources may
   eventually be deleted ([`azure-vm.md`](docs/evidence/azure-vm.md)).
+- **No recorded renewal check on the VM.** Certbot's renewal was never
+  tested with `--dry-run` while the VM was live, and it can't be now
+  ([`domain-https.md`](docs/evidence/domain-https.md), section 5).
 - **No email test before MX.** I didn't send a message before Zoho's MX
   records existed. The domain always had Namecheap's forwarding MX records
   before that ([`ex06.md`](docs/evidence/ex06.md)).
