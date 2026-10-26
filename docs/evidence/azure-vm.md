@@ -87,6 +87,13 @@ on 2026-10-26, Azure refused to start the VM because my free-trial
 subscription is now disabled and read-only. The 2026-10-20 start is the
 evidence that the site comes back after the VM restarts.
 
+**The subscription matters beyond this test.** The course asks me to keep the
+VM until the instructor says otherwise. While the subscription is disabled the
+VM can't run, and Azure eventually deletes the resources of a disabled
+subscription, including the VM, its disk and the SQLite data. Re-enabling it
+(for example by upgrading to pay-as-you-go) would let it run again, but could
+cost money.
+
 ## 5. What needed configuring
 
 1. **systemd unit** (`/etc/systemd/system/career-platform.service`):
