@@ -4,6 +4,13 @@ A FastAPI site served at [gavinclarke.me](https://gavinclarke.me). Production
 runs on Railway with PostgreSQL; local development uses SQLite. See
 [`docs/database-choice.md`](docs/database-choice.md) for why.
 
+## Email
+
+Mail for `@gavinclarke.me` goes to Zoho Mail (`career-platform@gavinclarke.me`),
+with MX, SPF, DKIM and DMARC records in Cloudflare. The tests and records are
+in [`docs/evidence/ex06.md`](docs/evidence/ex06.md), and the header analysis
+is in [`docs/evidence/zoho-header-check.md`](docs/evidence/zoho-header-check.md).
+
 ## Local development
 
 Local work stays on SQLite. Nothing here touches Railway.
