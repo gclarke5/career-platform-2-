@@ -114,14 +114,14 @@ flowchart LR
   S["Sender's mail server<br/>(for example iCloud)"]
   CF["Cloudflare DNS<br/>MX, SPF, DKIM, DMARC records"]
   ZIN["mx.zoho.com<br/>(mx2, mx3 as backups)"]
-  BOX["Zoho mailbox<br/>career-platform@gavinclarke.me"]
+  BOX["Zoho mailbox<br/>career-platform#64;gavinclarke.me"]
   ME["Me, Zoho webmail<br/>HTTPS :443"]
   ZOUT["Zoho outbound server<br/>(sender5-of-o52.zoho.com)"]
   R["Recipient's mail server"]
   S -- "MX lookup :53" --> CF
   S -- "SMTP :25" --> ZIN --> BOX
   ME --> BOX
-  BOX -- "send, DKIM-signed (s=zmail)" --> ZOUT
+  BOX -- "send, DKIM-signed, selector zmail" --> ZOUT
   ZOUT -- "SMTP :25" --> R
   R -- "check SPF, DKIM, DMARC :53" --> CF
 ```
