@@ -11,6 +11,13 @@ with MX, SPF, DKIM and DMARC records in Cloudflare. The tests and records are
 in [`docs/evidence/ex06.md`](docs/evidence/ex06.md), and the header analysis
 is in [`docs/evidence/zoho-header-check.md`](docs/evidence/zoho-header-check.md).
 
+## Analytics
+
+Google Analytics 4 (`G-FVPBZ69VK0`, set by the `GA_MEASUREMENT_ID` variable)
+loads only after a visitor accepts the consent banner (`static/js/consent.js`).
+Setup, verification and what the events show are in
+[`docs/evidence/analytics.md`](docs/evidence/analytics.md).
+
 ## Local development
 
 Local work stays on SQLite. Nothing here touches Railway.
