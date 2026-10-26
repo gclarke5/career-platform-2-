@@ -1,7 +1,8 @@
 # Career Platform
 
 A FastAPI site served at [gavinclarke.me](https://gavinclarke.me). Production
-runs on Railway with PostgreSQL; local development uses SQLite.
+runs on Railway with PostgreSQL; local development uses SQLite. See
+[`docs/database-choice.md`](docs/database-choice.md) for why.
 
 ## Local development
 
