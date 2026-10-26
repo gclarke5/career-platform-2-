@@ -28,6 +28,13 @@ TEST_DATABASE_URL=postgresql://localhost/career_test uv run pytest
 
 ## Production on Railway
 
+The move from the Azure VM is planned in
+[`docs/superpowers/plans/2026-10-08-railway-postgres-migration.md`](docs/superpowers/plans/2026-10-08-railway-postgres-migration.md),
+against the project spec in
+[`docs/superpowers/specs/resume-career-platform-spec.md`](docs/superpowers/specs/resume-career-platform-spec.md).
+[`docs/evidence/railway-migration.md`](docs/evidence/railway-migration.md)
+records the data comparison, cutover, rollback and who manages what.
+
 | Piece | Where |
 |---|---|
 | Project | `renewed-strength`, environment `production` |
