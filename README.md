@@ -1,15 +1,140 @@
 # Career Platform
 
-A FastAPI site served at [gavinclarke.me](https://gavinclarke.me). Production
-runs on Railway with PostgreSQL; local development uses SQLite. See
-[`docs/database-choice.md`](docs/database-choice.md) for why.
+**Live at [https://gavinclarke.me](https://gavinclarke.me).**
 
-## Email
+My personal career site, built for a class project. Recruiters and hiring
+managers use it to see who I am, which analyst roles I'm aiming for (finance,
+or operations and supply chain), my resume, and project write-ups, and to
+contact me. It's a FastAPI app that reads its profile and projects from a
+database. Production runs on Railway with PostgreSQL; local development uses
+SQLite ([why](docs/database-choice.md)).
 
-Mail for `@gavinclarke.me` goes to Zoho Mail (`career-platform@gavinclarke.me`),
-with MX, SPF, DKIM and DMARC records in Cloudflare. The tests and records are
-in [`docs/evidence/ex06.md`](docs/evidence/ex06.md), and the header analysis
-is in [`docs/evidence/zoho-header-check.md`](docs/evidence/zoho-header-check.md).
+The site started on an Azure VM (2026-10-08 to 2026-10-13) and moved to
+Railway on 2026-10-13. Email is Zoho Mail, DNS is Cloudflare, and analytics is
+Google Analytics 4. All the evidence is indexed in
+[`docs/project-1-submission.md`](docs/project-1-submission.md).
+
+Contents:
+- [Architecture](#architecture)
+- Setting up and running it:
+  - [Local development](#local-development)
+  - [Production on Railway](#production-on-railway)
+  - [Rollback](#rollback)
+- What happened:
+  - [The migration](#how-the-migration-preserved-the-data)
+  - [Decisions](#decisions)
+  - [Investigated failures](#investigated-failures)
+  - [Limitations](#remaining-limitations)
+- Upkeep and looking back:
+  - [Costs and cleanup](#costs-and-cleanup)
+  - [Reflection](#reflection)
+
+## Architecture
+
+### Now: Railway (since 2026-10-13)
+
+```mermaid
+flowchart LR
+  B["Visitor's browser"]
+  subgraph CF["Cloudflare (authoritative DNS)"]
+    DNS["gavinclarke.me: CNAME to Railway, DNS only<br/>www: proxied placeholder"]
+    RED["Cloudflare edge<br/>redirect rule: 301 to https://gavinclarke.me"]
+  end
+  subgraph RW["Railway, US East (iad), project renewed-strength"]
+    EDGE["Railway edge<br/>HTTPS :443, Let's Encrypt cert<br/>HTTP :80 redirects to HTTPS"]
+    WEB["web service<br/>uvicorn, 2 workers, HTTP :8080"]
+    PG[("Postgres 18 service<br/>postgres.railway.internal:5432<br/>private network only")]
+  end
+  GH["GitHub<br/>gclarke5/career-platform-2-, main"]
+  GA["Google Analytics 4<br/>googletagmanager.com, google-analytics.com"]
+  B -- "DNS :53" --> DNS
+  B -- "HTTPS :443 gavinclarke.me" --> EDGE
+  B -- "HTTP :80 / HTTPS :443 www" --> RED
+  EDGE -- "HTTP :8080 + X-Forwarded-Proto" --> WEB
+  WEB -- "SQL :5432" --> PG
+  GH -- "push to main: build, alembic upgrade, deploy" --> WEB
+  B -. "HTTPS :443, only after Accept:<br/>gtag.js, then /g/collect events" .-> GA
+```
+
+- **A page request:**
+  1. The browser asks Cloudflare for `gavinclarke.me`. Cloudflare answers
+     with Railway's address, because the record is DNS only.
+  2. The browser opens HTTPS on port 443 to Railway's edge, which holds the
+     certificate.
+  3. The edge forwards plain HTTP to uvicorn on port 8080 inside Railway.
+  4. The app reads Postgres over Railway's private network. Postgres has no
+     public address.
+- **`www`:** Cloudflare's own edge answers it with a 301 redirect, so `www`
+  traffic never reaches Railway.
+- **Analytics:** only after the visitor accepts the banner, the browser itself
+  sends events to Google, never through Railway
+  ([details](docs/evidence/analytics.md)).
+
+### Before: Azure VM (2026-10-08 to 2026-10-13)
+
+```mermaid
+flowchart LR
+  B["Visitor's browser"]
+  ME["My laptop<br/>99.7.122.53"]
+  subgraph CF["Cloudflare (authoritative DNS)"]
+    DNS["gavinclarke.me: A 20.114.0.108, DNS only"]
+  end
+  subgraph AZ["Azure, West US 2, rg-career-platform"]
+    NSG["NSG vm-career-platform-nsg<br/>22 from 99.7.122.53/32 only<br/>80, 443 from anywhere"]
+    subgraph VM["vm-career-platform, Ubuntu 24.04<br/>public 20.114.0.108, private 172.16.0.4"]
+      NGX["nginx :80, :443<br/>Certbot cert, 80 redirects to HTTPS<br/>/admin returns 404"]
+      UV["uvicorn, 2 workers, systemd<br/>127.0.0.1:8000 only"]
+      DB[("SQLite file<br/>~/career-platform-data/career_platform.db")]
+    end
+  end
+  GH["GitHub"]
+  GA["Google Analytics 4"]
+  B -- "DNS :53" --> DNS
+  B -- "HTTP :80 / HTTPS :443" --> NSG --> NGX
+  NGX -- "HTTP 127.0.0.1:8000" --> UV
+  UV -- "file read" --> DB
+  ME -- "SSH :22, key login" --> NSG
+  UV -. "git pull over HTTPS :443" .-> GH
+  B -. "HTTPS :443, only after Accept" .-> GA
+```
+
+On the VM, I ran everything myself:
+- nginx was the only public entry point;
+- the app listened only on `127.0.0.1`;
+- the database was a file on the VM's disk, with no network port;
+- I deployed code by SSHing in, running `git pull`, then
+  `sudo systemctl restart career-platform`.
+
+Details are in [`docs/evidence/azure-vm.md`](docs/evidence/azure-vm.md).
+
+### Email (Zoho Mail)
+
+```mermaid
+flowchart LR
+  S["Sender's mail server<br/>(for example iCloud)"]
+  CF["Cloudflare DNS<br/>MX, SPF, DKIM, DMARC records"]
+  ZIN["mx.zoho.com<br/>(mx2, mx3 as backups)"]
+  BOX["Zoho mailbox<br/>career-platform#64;gavinclarke.me"]
+  ME["Me, Zoho webmail<br/>HTTPS :443"]
+  ZOUT["Zoho outbound server<br/>(sender5-of-o52.zoho.com)"]
+  R["Recipient's mail server"]
+  S -- "MX lookup :53" --> CF
+  S -- "SMTP :25" --> ZIN --> BOX
+  ME --> BOX
+  BOX -- "send, DKIM-signed, selector zmail" --> ZOUT
+  ZOUT -- "SMTP :25" --> R
+  R -- "check SPF, DKIM, DMARC :53" --> CF
+```
+
+- **Incoming:** a sender's server looks up the MX records in Cloudflare and
+  delivers over SMTP to Zoho.
+- **Outgoing:** Zoho signs each message with my DKIM key and sends it. The
+  receiving server then checks SPF, DKIM and DMARC against my DNS records.
+
+Mail doesn't involve the VM or Railway at all, so it kept working through the
+move. The tests and records are in [`docs/evidence/ex06.md`](docs/evidence/ex06.md),
+and the header analysis is in
+[`docs/evidence/zoho-header-check.md`](docs/evidence/zoho-header-check.md).
 
 ## Analytics
 
@@ -281,7 +406,9 @@ nginx only answers for `gavinclarke.me`, so a request to the bare IP gets a
    DNS only (grey cloud).
 
 The VM has the content as it was on the day of the move. Anything changed in
-Postgres since then isn't on it.
+Postgres since then isn't on it, so copy Postgres back to the VM before step 3
+(see the rollback in [`docs/evidence/railway-migration.md`](docs/evidence/railway-migration.md),
+section 6).
 
 To stop it again, deallocate it. `--off` above deletes the auto-shutdown
 schedule, so set it again too (the CLI takes UTC: `0200` is 19:00 Pacific
@@ -292,6 +419,140 @@ az vm deallocate -g rg-career-platform -n vm-career-platform
 az vm auto-shutdown -g rg-career-platform -n vm-career-platform --time 0200
 ```
 
-See `docs/superpowers/plans/2026-10-08-railway-postgres-migration.md` for the
-move and `docs/superpowers/plans/2026-10-01-operate-the-vm.md` for the VM
-setup.
+## How the migration preserved the data
+
+The plan was written first:
+[`2026-10-08-railway-postgres-migration.md`](docs/superpowers/plans/2026-10-08-railway-postgres-migration.md),
+committed on 2026-10-08, five days before the domain moved on 2026-10-13. The
+full record, written afterward on 2026-10-26, is
+[`docs/evidence/railway-migration.md`](docs/evidence/railway-migration.md).
+
+- **The data didn't travel through Git.** I took a consistent `.backup`
+  snapshot of the VM's SQLite database. `python -m app.content_copy` copied it
+  once into an empty Postgres and reset the id sequences. Deploys never seed,
+  and a test fails if a migration ever inserts content.
+- **It's the real data, not the seed.** The seed writes 1 profile row. The VM
+  had 19 rows, including the project categories and `site_meta` I added on
+  2026-10-08, which no seed or migration writes.
+- **It was checked record by record.** On 2026-10-26, all 19 VM rows were
+  identical in Postgres, column for column. The rendered pages matched too,
+  apart from the project added in Postgres after the move.
+- **The rollback carries newer data back.** It copies Postgres into a fresh
+  SQLite file before DNS would point back at the VM. That copy was tested on
+  2026-10-26.
+
+**Responsibilities that moved to Railway:**
+- the operating system;
+- the web entry point (nginx's job);
+- TLS certificates (Certbot's job);
+- keeping the process running (systemd's job);
+- running the database server.
+
+**Still mine:**
+- the code and its packages;
+- the configuration and secrets;
+- the data and its backups (the Trial has no built-in backups);
+- migrations;
+- DNS;
+- costs.
+
+The full who-manages-what table is in section 7 of the migration record.
+
+## Decisions
+
+| Decision | Alternatives considered | Why | Where it's written |
+|---|---|---|---|
+| **Move from the Azure VM to Railway + PostgreSQL** | Stay on the VM; Railway with SQLite on a volume | The course moves to a platform-as-a-service. Railway deploys on every push to `main`, terminates TLS and runs Postgres for me, so I stop patching an OS and renewing certificates. A SQLite file in a Railway container would be wiped on every deploy, so Postgres it is. The cost: a trial that ends, one custom domain, and less control | [Migration plan](docs/superpowers/plans/2026-10-08-railway-postgres-migration.md) (written before, 2026-10-08), [database choice](docs/database-choice.md) |
+| **Managed email (Zoho Mail) instead of self-hosted** | A mail server (Postfix and Dovecot) on the VM; Namecheap's email forwarding | Running my own mail server means more open ports, spam filtering, patching, and a new IP address that big providers don't trust. Azure also restricts outbound port 25 on most subscriptions. Namecheap forwarding can receive but can't send as my domain with DKIM. Zoho's free plan gives a real mailbox with MX, SPF and DKIM values to publish, and mail keeps working whichever host runs the website | Written afterward, 2026-10-26 (this README). Results: [`ex06.md`](docs/evidence/ex06.md) |
+| **`www` redirected by Cloudflare** | A second custom domain on Railway; a paid Railway plan | The Trial allows one custom domain per service. A proxied placeholder `www` record plus a Cloudflare redirect rule keeps one address for free, with a valid certificate | [`domain-https.md`](docs/evidence/domain-https.md) |
+| **Opt-in analytics** | Load GA on every page | Nothing goes to Google unless the visitor accepts, so the privacy page is true. The cost: the numbers undercount visitors | [`analytics.md`](docs/evidence/analytics.md) |
+
+## Investigated failures
+
+Each one records the symptom, what I checked, the diagnosis, the repair, and
+the repeated check.
+
+| Failure | Kind | Symptom | Checks | Diagnosis and repair | Repeated check |
+|---|---|---|---|---|---|
+| **Data check said the VM's database differed from my laptop's** ([`ex03.md`](docs/evidence/ex03.md), section 3) | Application / database, real, during the Azure move | The `sqlite3 .dump` hashes from the two machines didn't match | Row counts per table; `/proc/<pid>/fd` showed which file the app had open; the profile row and homepage | The machines run different `sqlite3` versions (3.54 and 3.45), which format `.dump` output differently. The data was fine. I switched to hashing the database file itself | `sha256sum` of the file matched on both sides (`2a19d5ba…72b52`), checked again with the app running |
+| **A merge never deployed** (PR #22, 2026-10-21) | Deployment, real, on Railway | The site still ran the PR #21 build hours after PR #22 was merged | `railway deployment list -s web`: the newest deployment was `e5d4c90` (PR #21), with no failed or skipped attempt for `f72dc41` | Railway never started a deploy for that push. I didn't confirm why. Repaired by "Deploy Latest Commit" in the dashboard. I then added `"commit"` to `/health` (PR #28), so the live commit shows at a glance | Deployment `f72dc41`: SUCCESS on 2026-10-26, `/health` healthy. Every merge since (PRs #23–#31) deployed by itself, and `/health` showed each merge commit |
+| **TLS hostname mismatch** ([`ex05.md`](docs/evidence/ex05.md)) | DNS / TLS, **a deliberate lab failure** with simulated output from the exercise | `curl: (60) SSL certificate problem: certificate subject name does not match target host name` | `dig` (DNS resolved fine), `curl -Iv` (certificate subject `CN=old-vm.lab.example`) | The server presented a certificate for another host name. Repair: install a certificate for `site.lab.example` | The supplied follow-up showed `SSL certificate verify ok` and `HTTP/2 200` |
+| **Old MX records still showing after the switch** (Exercise 06, 2026-10-15) | DNS, real | After I deleted Namecheap's MX records, Google's `8.8.8.8` still returned `eforward1` | Asked Cloudflare's name servers (`liz`, `sevki`) directly: they were already clean | A cached answer at the resolver. It expired with the 300-second TTL. Along the way, one "NXDOMAIN" turned out to be my command: zsh didn't split `$q` into two words for `dig` | `dig @8.8.8.8 MX gavinclarke.me` returned only Zoho's three records. Rechecked on 2026-10-26: still the same on `8.8.8.8` and Cloudflare |
+
+[Exercise 04](docs/evidence/ex04.md) is my own explanation of how HTTPS
+secured the site on the VM.
+
+## Remaining limitations
+
+- **The Azure subscription is disabled (found 2026-10-26).** The VM can't
+  start, so I couldn't run a timed reboot test, and the rollback to the VM
+  can't run until the subscription is re-enabled. The VM's resources may
+  eventually be deleted ([`azure-vm.md`](docs/evidence/azure-vm.md)).
+- **No email test before MX.** I didn't send a message before Zoho's MX
+  records existed. The domain always had Namecheap's forwarding MX records
+  before that ([`ex06.md`](docs/evidence/ex06.md)).
+- **The address isn't resume-style.** It's `career-platform@` rather than
+  `gavin@`. An alias would fix that without DNS changes.
+- **DMARC is `p=none`.** Receivers report failing mail but don't block it.
+- **No built-in Postgres backups on the Trial.** Backups are manual copies to
+  SQLite (see [Rollback](#rollback)).
+- **During a database outage, the profile comes from `app/fallback_data.py`.**
+  That includes the home page's "What I've done so far" list. It's only as
+  current as that file.
+- **Not tested:** Railway's dashboard **Rollback** button. The README's rollback
+  uses `git revert` as the main path.
+- **No CI:** tests run locally before each PR, not automatically on GitHub.
+- **Config-as-Code deprecation:** Railway retires `railway.json` on
+  2026-12-01. The site will be on AWS by then.
+
+## Costs and cleanup
+
+The details and amounts are in [`docs/costs.md`](docs/costs.md).
+
+| Service | Plan and cost | Ends or renews | Cleanup plan |
+|---|---|---|---|
+| Railway | Trial, $5 credit. **$3.91 left and 13 days on 2026-10-26** | **2026-11-07** | Move to AWS after the midterm, before 2026-11-07. Then take a final Postgres backup, delete the Railway project, and remove the SSH key `gavin-laptop` |
+| Azure | Free trial, $5.46 used to 2026-10-20. **Subscription disabled (read-only) on 2026-10-26** | — | Keep the VM until the instructor says otherwise (see limitations). Then delete `rg-career-platform` |
+| Domain `gavinclarke.me` | $0 for the first year (GitHub Student Pack), Namecheap | Expires 2027-10-08 | Renew at Namecheap's regular price, or let it lapse after the course |
+| Zoho Mail | Free plan | — | Keep. Add a `gavin@` alias |
+| Cloudflare | Free plan | — | Keep. Point `@` at AWS during that move |
+| Google Analytics | Free | — | Keep |
+
+## Reflection
+
+**What I understand better:**
+
+One of the biggest things I learned is how layered this project is. From DNS, to TLS, to the Proxy, the application server and finally the database. When troubleshooting, understanding these concepts made it much easier and made my prompting with my claude agent in VS code more efficient. Instead of “guestimating” the issue, I went through a structured process of asking contextual questions and targeting possible diagnoses based on the findings. For example, the dig, curl -v was very important in narrowing down the root cause of an issue.
+
+Another important thing I learned is how to properly use Railway after successfully migrating my site from Azure VM. I assumed Railway would manage more than Azure VM and I would not have to do as much maintenance. However, it did not manage as much as I expected. I was still responsible for managing data, migrations and most importantly billing costs. This gave me great experience with getting comfortable with a system like Railway and has inspired me to use it further for future website endeavors I have planned.
+
+Lastly, I learned that just because my agent generated the code, did not automatically mean it would roll back along with my data. I could use past deployments for rollbacks but deployments and database changes needed to be managed individually.
+
+**What I would change:**
+
+If I were to do this project again, I would have put tests and verifications earlier on in the development process. I would have placed a before-MX test and timed reboot test in my original plan instead of just reversing the process and going backwards. That would have organized the process better but I also could have prompted Claude better as I repeated some confusing prompts during this process that made the agent double guess its decisions and rethink it.
+
+I also would have adjusted to the format of the website earlier on. That way I could check up on the live site format more consistently throughout the project thus giving me more opportunity to format it closer to my exact liking. This would include doing CI tests automatically wherever I made a pull request. This would allow me to find possible issues earlier on in the pre-deployment process.
+
+Finally, I would have checked up on deployments to Railway more myself as opposed to just relying more so on the claude agent in VS code. This is more of a self reflection as this does not reflect the process or agents decision making. At times I got lazy. Next time I would simply just pay more attention to each deployment and reflect on it by myself without help of ai so I can not only understand the process more, but make better prompts and decisions with my agent moving forward.
+
+## Project history
+
+- **Spec:** [`resume-career-platform-spec.md`](docs/superpowers/specs/resume-career-platform-spec.md),
+  committed on 2026-09-22.
+- **Plans.** The date in each file name is when the plan was started. The
+  first commit shows when it entered Git:
+
+  | Plan | First committed |
+  |---|---|
+  | [Build](docs/superpowers/plans/2026-09-17-resume-career-platform.md) | 2026-09-22, with the spec, after the first build commit (2026-09-17) |
+  | [Azure VM move](docs/superpowers/plans/2026-09-24-azure-vm-migration.md) | 2026-10-07 |
+  | [Operating the VM](docs/superpowers/plans/2026-10-01-operate-the-vm.md) | 2026-10-08 |
+  | [Railway move](docs/superpowers/plans/2026-10-08-railway-postgres-migration.md) | 2026-10-08, five days before the cutover |
+
+  The plans also hold the results recorded while each step ran.
+- **Evidence:** indexed by requirement in
+  [`docs/project-1-submission.md`](docs/project-1-submission.md).
+- **Commits:** since 2026-10-13, every change to `main` has come through a
+  pull request (`git log --first-parent --no-merges main` lists no direct
+  commits).
