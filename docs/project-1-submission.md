@@ -10,5 +10,6 @@
 - [Publishing a reviewed change through Railway](evidence/railway-deploy.md): PR #28 from local checks to commit, Railway deployment and the live `/health`; rollback is in the [README](../README.md#rollback).
 - [Exercise 04: How this site is secured](evidence/ex04.md): checking the HTTPS redirect and certificate (written on the Azure VM).
 - [Exercise 06: Custom-domain email with Zoho Mail](evidence/ex06.md): email tests, SPF/DKIM/DMARC results, and website analytics.
+- [Zoho header check](evidence/zoho-header-check.md): the received headers of a Zoho message, with SPF, DKIM and DMARC passing for `gavinclarke.me`.
 - [Costs and Railway trial end date](costs.md): Railway trial ends 2026-11-07; Azure costs to date.
 - [Why SQLite first, then PostgreSQL](database-choice.md): the database engine choice for each host.
