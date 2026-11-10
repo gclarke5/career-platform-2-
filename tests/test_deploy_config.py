@@ -88,3 +88,26 @@ def test_app_behind_proxy_builds_https_urls(tmp_path):
     finally:
         os.killpg(server.pid, 15)
         server.wait(timeout=10)
+
+
+def test_aws_deploy_script_migrates_but_never_seeds():
+    script = (ROOT / "deploy" / "deploy.sh").read_text()
+    assert "alembic upgrade head" in script
+    assert "seed" not in script.lower().replace("never seeds", "")
+    assert "set -euo pipefail" in script
+
+
+def test_aws_service_listens_on_localhost_only_and_trusts_only_nginx():
+    unit = (ROOT / "deploy" / "career-platform.service").read_text()
+    exec_start = next(line for line in unit.splitlines() if line.startswith("ExecStart="))
+    assert "--host 127.0.0.1" in exec_start
+    assert "--forwarded-allow-ips=127.0.0.1" in exec_start
+    assert "*" not in exec_start
+    assert "EnvironmentFile=/etc/career-platform.env" in unit
+
+
+def test_aws_nginx_blocks_admin_and_hides_the_test_hostname():
+    conf = (ROOT / "deploy" / "nginx-career-platform.conf").read_text()
+    assert "location ^~ /admin" in conf
+    assert "return 444" in conf
+    assert 'aws.gavinclarke.me "noindex, nofollow"' in conf
