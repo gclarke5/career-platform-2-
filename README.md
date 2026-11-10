@@ -235,7 +235,7 @@ and recorded, with every check, in
 
 | Piece | Where |
 |---|---|
-| Account | AWS `874754748309`, region `us-east-1`, IAM user `isba-student` (CLI profile `isba-4775`) |
+| Account | My AWS account, region `us-east-1`, a least-privilege IAM user (CLI profile `isba-4775`) |
 | Server | EC2 `career-platform-web` (`i-0bc13a8b3e864e62e`), t3.micro, Ubuntu 26.04, 20 GiB encrypted gp3, IMDSv2 only |
 | Address | Elastic IP `100.56.44.71` |
 | Database | RDS `career-platform-db`, PostgreSQL 18.6, db.t4g.micro, database `career_platform`, user `career_admin` |
