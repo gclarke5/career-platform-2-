@@ -4,6 +4,13 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 
+@pytest.fixture(autouse=True)
+def development_mode(monkeypatch):
+    # /admin only exists in development; set it explicitly instead of relying on a local .env.
+    monkeypatch.setattr("app.main.settings.environment", "development")
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+
+
 def test_admin_route_exists():
     response = TestClient(create_app()).get("/admin")
     assert response.status_code == 200

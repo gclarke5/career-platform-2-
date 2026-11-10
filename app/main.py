@@ -20,7 +20,8 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory="static"), name="static")
     app.include_router(public_router)
     # /admin is unauthenticated, so mount it only when explicitly in development and never on
-    # Railway (which sets RAILWAY_ENVIRONMENT). A missing or mistyped ENVIRONMENT stays closed.
+    # Railway (which sets RAILWAY_ENVIRONMENT). ENVIRONMENT defaults to production, so a missing
+    # or mistyped value stays closed on any host.
     if settings.environment == "development" and "RAILWAY_ENVIRONMENT" not in os.environ:
         app.include_router(admin_router)
 
@@ -36,8 +37,9 @@ def create_app() -> FastAPI:
             status_code=404,
         )
 
-    # Railway sets this on each GitHub deploy, so /health names the commit that's live.
-    commit = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")[:7] or None
+    # deploy/deploy.sh records GIT_COMMIT_SHA on the AWS server (Railway set RAILWAY_GIT_COMMIT_SHA),
+    # so /health names the commit that's live.
+    commit = (os.environ.get("GIT_COMMIT_SHA") or os.environ.get("RAILWAY_GIT_COMMIT_SHA", ""))[:7] or None
 
     @app.api_route("/health", methods=["GET", "HEAD"])
     def health() -> dict[str, str | bool | None]:
