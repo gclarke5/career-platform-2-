@@ -47,7 +47,8 @@ flowchart LR
   subgraph AWS["AWS us-east-1, default VPC"]
     SGW["Security group career-platform-web<br/>22 from my home IP only<br/>80, 443 from anywhere"]
     subgraph EC2["EC2 career-platform-web, t3.micro, Ubuntu 26.04<br/>Elastic IP 100.56.44.71"]
-      NGX["nginx :80, :443<br/>Let's Encrypt cert, HTTPS ends here<br/>/admin 404, unknown hosts dropped"]
+      NGX["nginx :80, :443, version hidden<br/>Let's Encrypt cert, HTTPS ends here<br/>/admin 404, unknown hosts dropped"]
+      CB["certbot.timer<br/>renewal check twice a day"]
       UV["uvicorn, 2 workers, systemd<br/>127.0.0.1:8000 only"]
     end
     SGD["Security group career-platform-db<br/>5432 only from career-platform-web"]
@@ -55,6 +56,8 @@ flowchart LR
   end
   GH["GitHub<br/>gclarke5/career-platform-2-"]
   GA["Google Analytics 4"]
+  LE["Let's Encrypt"]
+  GD["Personal Google Drive<br/>pg_dump export, outside AWS"]
   B -- "DNS :53" --> DNS
   B -- "HTTP :80 / HTTPS :443" --> SGW --> NGX
   B -- "HTTPS :443 www" --> RED
@@ -63,6 +66,10 @@ flowchart LR
   ME -- "SSH :22, key + passphrase" --> SGW
   UV -. "deploy.sh: git pull over HTTPS :443" .-> GH
   B -. "HTTPS :443, only after Accept" .-> GA
+  CB -. "ACME over HTTPS :443" .-> LE
+  CB -. "installs renewed cert, reloads" .-> NGX
+  RDS -. "pg_dump runs on the server, streamed over SSH" .-> ME
+  ME -. "manual upload" .-> GD
 ```
 
 - **A page request:**
@@ -80,6 +87,11 @@ flowchart LR
   nginx returns 404 for it.
 - **`www`:** Cloudflare's own edge answers it with a 301 redirect, so `www`
   traffic never reaches AWS.
+- **Certificates:** `certbot.timer` checks twice a day and renews about 30
+  days before expiry, then reloads nginx.
+- **Backups:** RDS keeps 1 day of automated backups inside AWS. Copies that
+  must outlive the account are `pg_dump` exports streamed to the laptop and
+  uploaded to my personal Google Drive (see [Rollback](#rollback)).
 - **Analytics:** only after the visitor accepts the banner, the browser itself
   sends events to Google, never through the server
   ([details](docs/evidence/analytics.md)).
@@ -246,7 +258,9 @@ and recorded, with every check, in
 | `www` | Redirected by Cloudflare (see below) |
 
 The server's config lives in the repo in [`deploy/`](deploy/): the systemd
-unit, the nginx site, and `deploy.sh`. Certbot added the HTTPS parts of the
+unit, the nginx site, and `deploy.sh`. One setting lives outside it:
+`server_tokens off;` in `/etc/nginx/nginx.conf` (replacing Ubuntu's
+`server_tokens build;`), so no response reveals the nginx version. Certbot added the HTTPS parts of the
 nginx site on the server; the certificate covers `gavinclarke.me` and
 `aws.gavinclarke.me` and renews itself (`certbot.timer`).
 
@@ -537,6 +551,7 @@ the repeated check.
 |---|---|---|---|---|---|
 | **Data check said the VM's database differed from my laptop's** ([`ex03.md`](docs/evidence/ex03.md), section 3) | Application / database, real, during the Azure move | The `sqlite3 .dump` hashes from the two machines didn't match | Row counts per table; `/proc/<pid>/fd` showed which file the app had open; the profile row and homepage | The machines run different `sqlite3` versions (3.54 and 3.45), which format `.dump` output differently. The data was fine. I switched to hashing the database file itself | `sha256sum` of the file matched on both sides (`2a19d5ba…72b52`), checked again with the app running |
 | **A merge never deployed** (PR #22, 2026-10-21) | Deployment, real, on Railway | The site still ran the PR #21 build hours after PR #22 was merged | `railway deployment list -s web`: the newest deployment was `e5d4c90` (PR #21), with no failed or skipped attempt for `f72dc41` | Railway never started a deploy for that push. I didn't confirm why. Repaired by "Deploy Latest Commit" in the dashboard. I then added `"commit"` to `/health` (PR #28), so the live commit shows at a glance | Deployment `f72dc41`: SUCCESS on 2026-10-26, `/health` healthy. Every merge since (PRs #23–#31) deployed by itself, and `/health` showed each merge commit |
+| **nginx reload failed while hiding its version** (2026-11-10, [`migration-notes.md`](docs/migration-notes.md)) | Web server configuration, real, on AWS | Testing showed the HTTP redirect answered `Server: nginx/1.28.3 (Ubuntu)`. My first fix, a `conf.d` file with `server_tokens off;`, made `nginx -t` and the reload fail | `curl -sI` on all four addresses; `grep -rn server_tokens /etc/nginx`; `nginx -t`; `systemctl status nginx`; `/health` | Ubuntu 26.04's `nginx.conf` already sets `server_tokens build;`, and nginx rejects a duplicate. A pipe to `tail` hid the failed test, so the reload ran anyway; nginx kept serving the old config (no downtime). Repair: removed the file, backed up `nginx.conf`, changed that line to `off`, reloaded only after `nginx -t` passed | `Server: nginx` with no version on HTTP and HTTPS for both names; redirect and `/health` unchanged |
 | **TLS hostname mismatch** ([`ex05.md`](docs/evidence/ex05.md)) | DNS / TLS, **a deliberate lab failure** with simulated output from the exercise | `curl: (60) SSL certificate problem: certificate subject name does not match target host name` | `dig` (DNS resolved fine), `curl -Iv` (certificate subject `CN=old-vm.lab.example`) | The server presented a certificate for another host name. Repair: install a certificate for `site.lab.example` | The supplied follow-up showed `SSL certificate verify ok` and `HTTP/2 200` |
 | **Old MX records still showing after the switch** (Exercise 06, 2026-10-15) | DNS, real | After I deleted Namecheap's MX records, Google's `8.8.8.8` still returned `eforward1` | Asked Cloudflare's name servers (`liz`, `sevki`) directly: they were already clean | A cached answer at the resolver. It expired with the 300-second TTL. Along the way, one "NXDOMAIN" turned out to be my command: zsh didn't split `$q` into two words for `dig` | `dig @8.8.8.8 MX gavinclarke.me` returned only Zoho's three records. Rechecked on 2026-10-26: still the same on `8.8.8.8` and Cloudflare |
 
