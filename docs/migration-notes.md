@@ -129,13 +129,21 @@ root.
   dry run were run again and passed.
 - Ahead of schedule: live at about 12:05 against a 13:45 deadline.
 
+## Done after the cutover (2026-11-10)
+
+- **Mail:** a send-and-reply test to my `gavinclarke.me` address worked.
+- **Export outside AWS:** `aws-rds-career-platform-2026-11-10-120544.dump`
+  (SHA-256 `2e7cd593…0b2c63`) is uploaded to my personal Google Drive.
+- **Railway cleanup:**
+  - The stale `_railway-verify` TXT record is deleted from Cloudflare.
+  - The SSH key `gavin-laptop` is removed from Railway (`railway ssh keys
+    list` shows none). The key file stays on the laptop for the Azure VM.
+  - The project `renewed-strength` is deleted. Railway shows it as deleted
+    with a grace period ending 2026-11-12 20:20 UTC.
+  - `gavinclarke.me` stayed on AWS and healthy throughout.
+
 ## Not verified
 
-- **Mail after the cutover:** DNS for mail didn't change, but a send-and-reply
-  test is still to be done by me.
-- **The Google Drive export** is made
-  (`aws-rds-career-platform-2026-11-10-120544.dump`, SHA-256
-  `2e7cd593…0b2c63`); uploading it to my personal Drive is mine to do.
 - An RDS point-in-time restore and a schema downgrade on the server have not
   been practised.
 - The class policy's `DenyMakingDatabasePublic` rule probably doesn't apply

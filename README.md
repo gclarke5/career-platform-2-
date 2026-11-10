@@ -584,7 +584,7 @@ The details and amounts are in [`docs/costs.md`](docs/costs.md).
 | Service | Plan and cost | Ends or renews | Cleanup plan |
 |---|---|---|---|
 | AWS | Free plan, $100 in credits. EC2 t3.micro, RDS db.t4g.micro, 40 GB of gp3 storage and a public IPv4 address: **about $26.82/month** | Credits run out around **2027-03-03** | Move to a cheaper setup (about $8–10/month) by the end of February 2027. Take an export outside AWS before deleting anything |
-| Railway | Trial, $5 credit | **Ended 2026-11-07** | Delete the project and the SSH key `gavin-laptop`, and remove the stale `_railway-verify` TXT record in Cloudflare |
+| Railway | Trial, $5 credit | **Ended 2026-11-07** | Done 2026-11-10: project deleted, SSH key `gavin-laptop` removed, `_railway-verify` TXT record deleted |
 | Azure | Free trial, $5.46 used to 2026-10-20. **Subscription disabled (read-only) on 2026-10-26** | — | Keep the VM until the instructor says otherwise (see limitations). Then delete `rg-career-platform` |
 | Domain `gavinclarke.me` | $0 for the first year (GitHub Student Pack), Namecheap | Expires 2027-10-08 | Renew at Namecheap's regular price, or let it lapse after the course |
 | Zoho Mail | Free plan | — | Keep. Add a `gavin@` alias |
@@ -613,7 +613,6 @@ Finally, I would have checked up on deployments to Railway more myself as oppose
 
 - **By the end of February 2027:** move to a setup that costs about $8–10 a
   month before the AWS credits run out, so the site stays up for employers.
-- Remove the stale `_railway-verify` record and the Railway project.
 - Give the app its own database user with only the rights it needs.
 - Run tests on GitHub for each PR, and practise an RDS point-in-time restore.
 
