@@ -1,8 +1,28 @@
 # Costs
 
-Recorded on 2026-10-20.
+Recorded on 2026-10-20; the AWS section was added on 2026-11-10.
 
-## Railway (current host)
+## AWS (current host, since 2026-11-10)
+
+On-demand prices for us-east-1, from AWS's public price lists (checked
+2026-10-29 to 2026-11-07). The account is on the Free plan with $100 in
+credits, so nothing is charged to a card while credits last.
+
+| Item | Price | Per month |
+|---|---|---|
+| EC2 t3.micro | $0.0104/hr | $7.59 |
+| EBS 20 GB gp3 (server disk) | $0.08/GB-month | $1.60 |
+| RDS db.t4g.micro, Single-AZ | $0.016/hr | $11.68 |
+| RDS gp3 20 GB | $0.115/GB-month | $2.30 |
+| Public IPv4 (Elastic IP) | $0.005/hr | $3.65 |
+| **Total** | | **≈ $26.82** |
+
+Backups (1 day, within the free backup allowance) and data transfer for a
+personal site come to about $0. At this rate the $100 lasts until around
+**2027-03-03**, so the plan is to move to a setup costing about $8–10 a month
+by the end of February 2027.
+
+## Railway (2026-10-08 to 2026-11-07, ended)
 
 | Item | Value |
 |---|---|
