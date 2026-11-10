@@ -142,6 +142,24 @@ root.
     with a grace period ending 2026-11-12 20:20 UTC.
   - `gavinclarke.me` stayed on AWS and healthy throughout.
 
+## Changes after the cutover
+
+- **2026-11-10, hide the nginx version.** Testing showed the HTTP redirect
+  block that Certbot added answered with `Server: nginx/1.28.3 (Ubuntu)`; the
+  site's own `server_tokens off;` only covered its main block.
+  - First attempt (failed): a `conf.d/hide-version.conf` with
+    `server_tokens off;`. Ubuntu 26.04's `nginx.conf` already sets
+    `server_tokens build;`, so `nginx -t` rejected the duplicate. A `| tail -1`
+    hid that failure and the reload ran anyway; it failed too, and nginx kept
+    serving the old config (no downtime, `/health` healthy throughout). The
+    file was removed and `nginx -t` passed again.
+  - Fix: backed up `nginx.conf` to `nginx.conf.bak-2026-11-10`, changed line
+    22 to `server_tokens off;`, ran `nginx -t`, then reloaded.
+  - Check: `Server: nginx` with no version on HTTP and HTTPS for both names;
+    the 301 redirect and `/health` unchanged.
+  - Not in the repo's files, so `deploy/nginx-career-platform.conf` now says
+    to set it when rebuilding.
+
 ## Not verified
 
 - An RDS point-in-time restore and a schema downgrade on the server have not
